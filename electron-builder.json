@@ -1,17 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/electron-builder.json",
   "appId": "com.ebook.reader",
-  "productName": "EBook Reader",
+  "productName": "电子书阅读器",
   "directories": {
     "output": "release"
   },
   "files": [
-    "dist/**/*"
+    "out/**/*"
   ],
   "asar": true,
   "win": {
     "target": ["nsis"],
-    "icon": "resources/icon.ico"
+    "icon": "resources/icon.ico",
+    "signAndEditExecutable": false
   },
   "nsis": {
     "oneClick": false,

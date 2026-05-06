@@ -68,6 +68,17 @@ export interface ReaderState {
   updateNote: (id: number, content: string) => Promise<void>
   removeNote: (id: number) => Promise<void>
 
+  controlsLocked: boolean
+  setControlsLocked: (locked: boolean) => void
+
+  navigateTarget: { page?: number; cfi?: string } | null
+  navigateTo: (target: { page?: number; cfi?: string }) => void
+  clearNavigateTarget: () => void
+
+  turnPageDelta: number | null
+  turnPage: (delta: number) => void
+  clearTurnPage: () => void
+
   setSidebarTab: (tab: 'toc' | 'bookmarks' | 'highlights' | 'notes') => void
   toggleSidebar: () => void
   setShowControls: (show: boolean) => void
@@ -83,6 +94,9 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   sidebarTab: 'toc',
   showSidebar: false,
   showControls: true,
+  controlsLocked: false,
+  navigateTarget: null,
+  turnPageDelta: null,
   tableOfContents: [],
 
   setBookId: (bookId) => set({ bookId }),
@@ -206,6 +220,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     }
   },
 
+  setControlsLocked: (controlsLocked) => set({ controlsLocked }),
+  navigateTo: (target) => set({ navigateTarget: target }),
+  clearNavigateTarget: () => set({ navigateTarget: null }),
+  turnPage: (delta) => set({ turnPageDelta: delta }),
+  clearTurnPage: () => set({ turnPageDelta: null }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab, showSidebar: true }),
   toggleSidebar: () => set({ showSidebar: !get().showSidebar }),
   setShowControls: (showControls) => set({ showControls }),

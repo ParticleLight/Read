@@ -2,18 +2,21 @@
   "name": "ebook-reader",
   "version": "1.0.0",
   "description": "全功能电子书阅读器",
-  "main": "dist/main/index.js",
+  "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
+    "start": "cross-env ELECTRON_RUN_AS_NODE= electron .",
+    "package": "electron-vite build && electron-builder --win",
+    "package:dir": "electron-vite build && electron-builder --win --dir",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
-    "lowdb": "^7.0.1",
     "epubjs": "^0.3.93",
     "fast-xml-parser": "^4.5.3",
     "jszip": "^3.10.1",
+    "lowdb": "^7.0.1",
     "markdown-it": "^14.1.0",
     "pdfjs-dist": "^4.10.38",
     "react": "^19.1.0",
@@ -22,13 +25,12 @@
     "zustand": "^5.0.3"
   },
   "devDependencies": {
-
     "@types/markdown-it": "^14.1.2",
     "@types/react": "^19.1.2",
     "@types/react-dom": "^19.1.2",
     "@vitejs/plugin-react": "^4.4.1",
     "autoprefixer": "^10.4.21",
-    "electron": "^35.1.5",
+    "electron": "^33.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^3.1.0",
     "postcss": "^8.5.3",

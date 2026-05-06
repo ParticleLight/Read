@@ -4,16 +4,33 @@ import { useSettingsStore } from '../../stores/settingsStore'
 
 interface TextRendererProps {
   book: any
-  content: Buffer
+  content: Uint8Array
   bookId: number
 }
 
 export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const text = content.toString('utf-8')
+  const text = new TextDecoder('utf-8').decode(content)
 
-  const { progress, setProgress, saveProgress } = useReaderStore()
+  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
   const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
+
+  useEffect(() => {
+    if (!navigateTarget || !containerRef.current) return
+    if (navigateTarget.page) {
+      const container = containerRef.current
+      const scrollTop = (navigateTarget.page / 100) * container.scrollHeight
+      container.scrollTop = scrollTop
+    }
+    clearNavigateTarget()
+  }, [navigateTarget])
+
+  useEffect(() => {
+    if (turnPageDelta === null || !containerRef.current) return
+    const container = containerRef.current
+    container.scrollBy({ top: turnPageDelta > 0 ? container.clientHeight * 0.9 : -container.clientHeight * 0.9, behavior: 'smooth' })
+    clearTurnPage()
+  }, [turnPageDelta])
 
   useEffect(() => {
     if (!containerRef.current) return

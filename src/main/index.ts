@@ -20,15 +20,32 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    titleBarStyle: 'hiddenInset',
     backgroundColor: '#1a1a2e',
   })
 
   if (process.env.ELECTRON_RENDERER_URL) {
+    console.log('Loading URL:', process.env.ELECTRON_RENDERER_URL)
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    const htmlPath = join(__dirname, '../renderer/index.html')
+    console.log('Loading file:', htmlPath)
+    mainWindow.loadFile(htmlPath)
   }
+
+  mainWindow.webContents.openDevTools()
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.log('Page loaded successfully')
+  })
+
+  mainWindow.webContents.on('did-fail-load', (_e, code, desc) => {
+    console.error('Page load failed:', code, desc)
+  })
+
+  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
+    const levels = ['verbose', 'info', 'warning', 'error']
+    console.log(`[renderer ${levels[level] || level}] ${message} (${sourceId}:${line})`)
+  })
 
   mainWindow.on('closed', () => {
     mainWindow = null

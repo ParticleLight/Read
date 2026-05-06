@@ -32,7 +32,8 @@ export function registerFileHandlers(library: LibraryService) {
   })
 
   ipcMain.handle('file:read', async (_event, filePath: string) => {
-    return readFileSync(filePath)
+    const buf = readFileSync(filePath)
+    return new Uint8Array(buf)
   })
 
   ipcMain.handle('book:metadata', async (_event, filePath: string) => {

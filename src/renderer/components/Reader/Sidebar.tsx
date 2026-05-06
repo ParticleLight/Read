@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 
 interface SidebarProps {
@@ -10,7 +11,9 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
     sidebarTab, setSidebarTab, tableOfContents,
     bookmarks, highlights, notes,
     removeBookmark, removeHighlight, removeNote,
+    addNote, progress, navigateTo,
   } = useReaderStore()
+  const [newNote, setNewNote] = useState('')
 
   const tabs = [
     { id: 'toc' as const, label: '目录', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
@@ -77,7 +80,11 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
               <p className="text-sm text-gray-500 text-center py-4">暂无书签</p>
             ) : (
               bookmarks.map((bm) => (
-                <div key={bm.id} className="group flex items-start gap-2 p-2 rounded-lg hover:bg-gray-700/50">
+                <div
+                  key={bm.id}
+                  className="group flex items-start gap-2 p-2 rounded-lg hover:bg-gray-700/50 cursor-pointer"
+                  onClick={() => navigateTo({ page: bm.page, cfi: bm.cfi })}
+                >
                   <svg className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                   </svg>
@@ -86,7 +93,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                     <p className="text-xs text-gray-500">{new Date(bm.created_at).toLocaleString('zh-CN')}</p>
                   </div>
                   <button
-                    onClick={() => removeBookmark(bm.id)}
+                    onClick={(e) => { e.stopPropagation(); removeBookmark(bm.id) }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400"
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -129,6 +136,33 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
 
         {sidebarTab === 'notes' && (
           <div className="space-y-2">
+            {/* Add note */}
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newNote.trim()) {
+                    addNote({ book_id: bookId, page: progress.page, cfi: progress.cfi, content: newNote.trim() })
+                    setNewNote('')
+                  }
+                }}
+                placeholder="添加笔记..."
+                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                onClick={() => {
+                  if (newNote.trim()) {
+                    addNote({ book_id: bookId, page: progress.page, cfi: progress.cfi, content: newNote.trim() })
+                    setNewNote('')
+                  }
+                }}
+                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
+              >
+                添加
+              </button>
+            </div>
             {notes.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-4">暂无笔记</p>
             ) : (

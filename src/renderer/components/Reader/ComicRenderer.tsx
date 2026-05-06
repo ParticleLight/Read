@@ -4,7 +4,7 @@ import { useReaderStore } from '../../stores/readerStore'
 
 interface ComicRendererProps {
   book: any
-  content: Buffer
+  content: Uint8Array
   bookId: number
 }
 
@@ -13,7 +13,19 @@ export function ComicRenderer({ book, content, bookId }: ComicRendererProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
 
-  const { progress, setProgress, saveProgress } = useReaderStore()
+  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
+
+  useEffect(() => {
+    if (!navigateTarget) return
+    if (navigateTarget.page) setCurrentIndex(navigateTarget.page)
+    clearNavigateTarget()
+  }, [navigateTarget])
+
+  useEffect(() => {
+    if (turnPageDelta === null) return
+    setCurrentIndex((i) => Math.max(0, Math.min(i + turnPageDelta, images.length - 1)))
+    clearTurnPage()
+  }, [turnPageDelta])
 
   useEffect(() => {
     const loadComic = async () => {
@@ -103,7 +115,7 @@ export function ComicRenderer({ book, content, bookId }: ComicRendererProps) {
           <img
             key={index}
             src={url}
-            alt={`Page ${index + 1}`}
+            alt={`第 ${index + 1} 页`}
             className="w-full"
             loading="lazy"
           />

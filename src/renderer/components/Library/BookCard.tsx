@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Book } from '../../stores/libraryStore'
+import { safeText } from '../../utils/safeText'
 
 interface BookCardProps {
   book: Book
@@ -19,20 +20,83 @@ const formatColors: Record<string, string> = {
   markdown: 'bg-teal-600',
 }
 
+async function generatePdfPreview(filePath: string): Promise<string | null> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.mjs', window.location.href).href
+
+    const content = await window.electronAPI.readFile(filePath)
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(content) }).promise
+    const page = await pdf.getPage(1)
+    const viewport = page.getViewport({ scale: 1.5 })
+
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    const ctx = canvas.getContext('2d')!
+
+    await page.render({ canvasContext: ctx, viewport }).promise
+    return canvas.toDataURL('image/jpeg', 0.7)
+  } catch {
+    return null
+  }
+}
+
+async function generateCbzPreview(filePath: string): Promise<string | null> {
+  try {
+    const JSZip = (await import('jszip')).default
+    const content = await window.electronAPI.readFile(filePath)
+    const zip = await JSZip.loadAsync(new Uint8Array(content))
+
+    const imageFiles: string[] = []
+    zip.forEach((path) => {
+      if (/\.(jpg|jpeg|png|gif|webp)$/i.test(path)) imageFiles.push(path)
+    })
+    imageFiles.sort()
+
+    if (imageFiles.length === 0) return null
+    const blob = await zip.file(imageFiles[0])!.async('blob')
+    return URL.createObjectURL(blob)
+  } catch {
+    return null
+  }
+}
+
 export function BookCard({ book, onOpen, onDelete }: BookCardProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const objectUrlRef = useRef<string | null>(null)
 
   useEffect(() => {
     let mounted = true
     const loadCover = async () => {
+      // Try existing cover first
       try {
         const cover = await window.electronAPI.getCoverImage(book.id)
-        if (mounted && cover) setCoverUrl(cover)
+        if (mounted && cover) {
+          setCoverUrl(cover)
+          return
+        }
       } catch {}
+
+      // Generate preview for PDF and CBZ
+      if (book.format === 'pdf') {
+        const preview = await generatePdfPreview(book.file_path)
+        if (mounted && preview) setCoverUrl(preview)
+      } else if (book.format === 'cbz' || book.format === 'cbr') {
+        const preview = await generateCbzPreview(book.file_path)
+        if (mounted && preview) {
+          objectUrlRef.current = preview
+          setCoverUrl(preview)
+        }
+      }
     }
     loadCover()
-    return () => { mounted = false }
+    return () => {
+      mounted = false
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    }
   }, [book.id])
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -56,7 +120,7 @@ export function BookCard({ book, onOpen, onDelete }: BookCardProps) {
             <svg className="w-12 h-12 text-gray-500 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
-            <span className="text-xs text-gray-400 text-center line-clamp-2">{book.title}</span>
+            <span className="text-xs text-gray-400 text-center line-clamp-2">{safeText(book.title)}</span>
           </div>
         )}
 
@@ -78,8 +142,8 @@ export function BookCard({ book, onOpen, onDelete }: BookCardProps) {
 
       {/* Info */}
       <div className="mt-2 px-1">
-        <p className="text-sm font-medium text-gray-200 truncate">{book.title}</p>
-        <p className="text-xs text-gray-500 truncate">{book.author || '未知作者'}</p>
+        <p className="text-sm font-medium text-gray-200 truncate">{safeText(book.title)}</p>
+        <p className="text-xs text-gray-500 truncate">{safeText(book.author) || '未知作者'}</p>
       </div>
 
       {/* Context Menu */}
@@ -91,12 +155,21 @@ export function BookCard({ book, onOpen, onDelete }: BookCardProps) {
           >
             打开
           </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); onDelete(book.id); setShowMenu(false) }}
-            className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700"
-          >
-            删除
-          </button>
+          {!confirmDelete ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
+              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-700"
+            >
+              删除
+            </button>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(book.id); setShowMenu(false); setConfirmDelete(false) }}
+              className="w-full text-left px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700"
+            >
+              确认删除
+            </button>
+          )}
         </div>
       )}
     </div>

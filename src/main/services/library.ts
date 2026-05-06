@@ -158,13 +158,13 @@ export class LibraryService {
     const metadataNode = opf?.package?.metadata
 
     if (metadataNode) {
-      metadata.title = metadataNode['dc:title'] || metadata.title
-      metadata.author = metadataNode['dc:creator'] || metadata.author
-      metadata.publisher = metadataNode['dc:publisher'] || metadata.publisher
-      metadata.publishDate = metadataNode['dc:date'] || metadata.publishDate
-      metadata.isbn = metadataNode['dc:identifier'] || metadata.isbn
-      metadata.language = metadataNode['dc:language'] || metadata.language
-      metadata.description = metadataNode['dc:description'] || metadata.description
+      metadata.title = this.extractText(metadataNode['dc:title']) || metadata.title
+      metadata.author = this.extractText(metadataNode['dc:creator']) || metadata.author
+      metadata.publisher = this.extractText(metadataNode['dc:publisher']) || metadata.publisher
+      metadata.publishDate = this.extractText(metadataNode['dc:date']) || metadata.publishDate
+      metadata.isbn = this.extractText(metadataNode['dc:identifier']) || metadata.isbn
+      metadata.language = this.extractText(metadataNode['dc:language']) || metadata.language
+      metadata.description = this.extractText(metadataNode['dc:description']) || metadata.description
     }
   }
 
@@ -244,5 +244,12 @@ export class LibraryService {
       console.error('Cover extraction failed:', e)
     }
     return null
+  }
+
+  private extractText(value: any): string | undefined {
+    if (!value) return undefined
+    if (typeof value === 'string') return value
+    if (typeof value === 'object' && value['#text']) return String(value['#text'])
+    return String(value)
   }
 }

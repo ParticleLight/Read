@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
-      "Bash(npx electron-vite *)"
+      "Bash(npx electron-vite *)",
+      "Bash(npm run *)"
     ]
   }
 }

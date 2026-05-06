@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import { EpubRenderer } from './EpubRenderer'
@@ -17,9 +17,11 @@ interface ReaderViewProps {
 
 export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const [book, setBook] = useState<any>(null)
-  const [bookContent, setBookContent] = useState<Buffer | null>(null)
+  const [bookContent, setBookContent] = useState<Uint8Array | null>(null)
   const [showSettings, setShowSettings] = useState(false)
-  const { showSidebar, showControls, setShowControls, loadProgress, loadBookmarks, loadHighlights, loadNotes } = useReaderStore()
+  const [showArrows, setShowArrows] = useState(false)
+  const arrowTimerRef = useRef<number | null>(null)
+  const { showSidebar, showControls, controlsLocked, setShowControls, loadProgress, loadBookmarks, loadHighlights, loadNotes, turnPage } = useReaderStore()
 
   useEffect(() => {
     const loadBook = async () => {
@@ -27,7 +29,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       setBook(bookData)
 
       const content = await window.electronAPI.readFile(bookData.file_path)
-      setBookContent(Buffer.from(content))
+      setBookContent(new Uint8Array(content))
 
       await loadProgress(bookId)
       await loadBookmarks(bookId)
@@ -79,9 +81,14 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
     <div
       className="h-screen flex bg-[var(--reader-bg)] text-[var(--reader-text)] relative"
       onMouseMove={(e) => {
+        if (controlsLocked) return
         const y = e.clientY
         const h = window.innerHeight
         setShowControls(y > h - 120 || y < 60)
+
+        setShowArrows(true)
+        if (arrowTimerRef.current) clearTimeout(arrowTimerRef.current)
+        arrowTimerRef.current = window.setTimeout(() => setShowArrows(false), 2000)
       }}
     >
       {/* Sidebar */}
@@ -108,6 +115,26 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
           {renderContent()}
         </div>
 
+        {/* Page turn arrows */}
+        <button
+          onClick={(e) => { e.stopPropagation(); turnPage(-1) }}
+          className={`absolute left-2 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-black/30 hover:bg-black/50 text-white/60 hover:text-white transition-all duration-300 backdrop-blur-sm ${showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          title="上一页"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); turnPage(1) }}
+          className={`absolute right-2 top-1/2 -translate-y-1/2 z-20 p-3 rounded-full bg-black/30 hover:bg-black/50 text-white/60 hover:text-white transition-all duration-300 backdrop-blur-sm ${showArrows ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+          title="下一页"
+        >
+          <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+
         {/* Controls */}
         <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
           <ReaderControls bookId={bookId} onOpenSettings={() => setShowSettings(true)} />
@@ -116,7 +143,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
 
       {/* Settings Panel */}
       {showSettings && (
-        <SettingsPanel onClose={() => setShowSettings(false)} />
+        <SettingsPanel onClose={() => setShowSettings(false)} format={book.format} />
       )}
     </div>
   )

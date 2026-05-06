@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
+import { safeText } from '../../utils/safeText'
 
 interface LibraryProps {
   onOpenBook: (bookId: number) => void
@@ -14,13 +15,13 @@ export function Library({ onOpenBook }: LibraryProps) {
   const filteredBooks = books.filter((book) => {
     if (!searchQuery) return true
     const q = searchQuery.toLowerCase()
-    return book.title.toLowerCase().includes(q) || book.author?.toLowerCase().includes(q)
+    return safeText(book.title).toLowerCase().includes(q) || safeText(book.author).toLowerCase().includes(q)
   })
 
   const sortedBooks = [...filteredBooks].sort((a, b) => {
     switch (sortBy) {
-      case 'title': return a.title.localeCompare(b.title)
-      case 'author': return (a.author || '').localeCompare(b.author || '')
+      case 'title': return safeText(a.title).localeCompare(safeText(b.title))
+      case 'author': return safeText(a.author).localeCompare(safeText(b.author))
       case 'added_at': return new Date(b.added_at).getTime() - new Date(a.added_at).getTime()
       case 'last_opened': return new Date(b.last_opened || 0).getTime() - new Date(a.last_opened || 0).getTime()
       default: return 0
@@ -66,7 +67,7 @@ export function Library({ onOpenBook }: LibraryProps) {
             <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
-            EBook Reader
+            电子书阅读器
           </h1>
           <span className="text-sm text-gray-500">{books.length} 本书</span>
         </div>

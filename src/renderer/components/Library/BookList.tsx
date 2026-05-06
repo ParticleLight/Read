@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import { Book } from '../../stores/libraryStore'
 import { useLibraryStore } from '../../stores/libraryStore'
+import { safeText } from '../../utils/safeText'
 
 interface BookListProps {
   books: Book[]
@@ -26,6 +28,17 @@ function formatFileSize(bytes: number): string {
 
 export function BookList({ books, onOpenBook }: BookListProps) {
   const deleteBook = useLibraryStore((s) => s.deleteBook)
+  const [confirmId, setConfirmId] = useState<number | null>(null)
+
+  const handleDelete = (e: React.MouseEvent, bookId: number) => {
+    e.stopPropagation()
+    if (confirmId === bookId) {
+      deleteBook(bookId)
+      setConfirmId(null)
+    } else {
+      setConfirmId(bookId)
+    }
+  }
 
   return (
     <div className="space-y-1">
@@ -35,7 +48,8 @@ export function BookList({ books, onOpenBook }: BookListProps) {
         <div className="col-span-3">作者</div>
         <div className="col-span-1">格式</div>
         <div className="col-span-1">大小</div>
-        <div className="col-span-2">添加时间</div>
+        <div className="col-span-1">添加时间</div>
+        <div className="col-span-1"></div>
       </div>
 
       {/* Rows */}
@@ -49,17 +63,32 @@ export function BookList({ books, onOpenBook }: BookListProps) {
             <svg className="w-5 h-5 text-gray-600 group-hover:text-indigo-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
-            <span className="text-sm text-gray-200 truncate">{book.title}</span>
+            <span className="text-sm text-gray-200 truncate">{safeText(book.title)}</span>
           </div>
-          <div className="col-span-3 text-sm text-gray-400 truncate flex items-center">{book.author || '—'}</div>
+          <div className="col-span-3 text-sm text-gray-400 truncate flex items-center">{safeText(book.author) || '—'}</div>
           <div className="col-span-1 flex items-center">
             <span className={`text-xs font-bold text-white px-2 py-0.5 rounded ${formatColors[book.format] || 'bg-gray-600'}`}>
               {book.format.toUpperCase()}
             </span>
           </div>
           <div className="col-span-1 text-sm text-gray-500 flex items-center">{formatFileSize(book.file_size)}</div>
-          <div className="col-span-2 text-sm text-gray-500 flex items-center">
+          <div className="col-span-1 text-sm text-gray-500 flex items-center">
             {new Date(book.added_at).toLocaleDateString('zh-CN')}
+          </div>
+          <div className="col-span-1 flex items-center justify-end">
+            <button
+              onClick={(e) => handleDelete(e, book.id)}
+              className={`p-1.5 rounded-lg transition-colors ${
+                confirmId === book.id
+                  ? 'bg-red-600 text-white'
+                  : 'opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 hover:bg-gray-700'
+              }`}
+              title={confirmId === book.id ? '再次点击确认删除' : '删除'}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
           </div>
         </div>
       ))}

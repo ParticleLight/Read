@@ -4,9 +4,10 @@ import { resolve } from 'path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ include: ['lowdb', 'epubjs', 'fast-xml-parser', 'jszip', 'markdown-it', 'pdfjs-dist'] })],
     build: {
       rollupOptions: {
+        external: ['electron'],
         input: {
           index: resolve(__dirname, 'src/main/index.ts')
         }

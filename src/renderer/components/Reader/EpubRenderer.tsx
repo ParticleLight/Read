@@ -5,7 +5,7 @@ import { useSettingsStore } from '../../stores/settingsStore'
 
 interface EpubRendererProps {
   book: any
-  content: Buffer
+  content: Uint8Array
   bookId: number
 }
 
@@ -15,8 +15,25 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
   const renditionRef = useRef<Rendition | null>(null)
   const [isReady, setIsReady] = useState(false)
 
-  const { progress, setProgress, saveProgress, setTableOfContents, addBookmark, addHighlight } = useReaderStore()
+  const { progress, setProgress, saveProgress, setTableOfContents, addBookmark, addHighlight, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
   const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
+
+  // Handle navigation from sidebar bookmarks/TOC
+  useEffect(() => {
+    if (!navigateTarget || !renditionRef.current) return
+    if (navigateTarget.cfi) {
+      renditionRef.current.display(navigateTarget.cfi)
+    }
+    clearNavigateTarget()
+  }, [navigateTarget])
+
+  // Handle page turn from arrows
+  useEffect(() => {
+    if (!turnPageDelta || !renditionRef.current) return
+    if (turnPageDelta > 0) renditionRef.current.next()
+    else renditionRef.current.prev()
+    clearTurnPage()
+  }, [turnPageDelta])
 
   useEffect(() => {
     if (!viewerRef.current) return

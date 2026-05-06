@@ -3,11 +3,12 @@ import * as pdfjsLib from 'pdfjs-dist'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`
+// Use the worker bundled alongside the renderer output
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.mjs', window.location.href).href
 
 interface PdfRendererProps {
   book: any
-  content: Buffer
+  content: Uint8Array
   bookId: number
 }
 
@@ -16,11 +17,27 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
-  const [scale, setScale] = useState(1.5)
+  const [scale, setScale] = useState(2)
   const [isRendering, setIsRendering] = useState(false)
 
-  const { progress, setProgress, saveProgress } = useReaderStore()
+  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
   const { theme } = useSettingsStore()
+
+  // Handle navigation from sidebar bookmarks/TOC
+  useEffect(() => {
+    if (!navigateTarget || !pdfDoc) return
+    if (navigateTarget.page) {
+      setCurrentPage(Math.max(1, Math.min(navigateTarget.page, totalPages)))
+    }
+    clearNavigateTarget()
+  }, [navigateTarget])
+
+  // Handle page turn from arrows
+  useEffect(() => {
+    if (turnPageDelta === null) return
+    setCurrentPage((p) => Math.max(1, Math.min(p + turnPageDelta, totalPages)))
+    clearTurnPage()
+  }, [turnPageDelta])
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -40,12 +57,15 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
     const renderPage = async () => {
       setIsRendering(true)
       const page = await pdfDoc.getPage(currentPage)
-      const viewport = page.getViewport({ scale })
+      const dpr = window.devicePixelRatio || 1
+      const viewport = page.getViewport({ scale: scale * dpr })
 
       const canvas = canvasRef.current!
       const context = canvas.getContext('2d')!
       canvas.height = viewport.height
       canvas.width = viewport.width
+      canvas.style.width = `${viewport.width / dpr}px`
+      canvas.style.height = `${viewport.height / dpr}px`
 
       if (theme === 'dark') {
         context.filter = 'invert(0.85) hue-rotate(180deg)'
@@ -91,15 +111,21 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
     else if (x > w * 0.7) goNext()
   }, [goNext, goPrev])
 
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    if (e.ctrlKey) {
-      e.preventDefault()
-      setScale((s) => Math.max(0.5, Math.min(4, s + (e.deltaY > 0 ? -0.1 : 0.1))))
+  useEffect(() => {
+    const el = canvasRef.current?.parentElement
+    if (!el) return
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+        setScale((s) => Math.max(0.5, Math.min(4, s + (e.deltaY > 0 ? -0.1 : 0.1))))
+      }
     }
+    el.addEventListener('wheel', handleWheel, { passive: false })
+    return () => el.removeEventListener('wheel', handleWheel)
   }, [])
 
   return (
-    <div className="h-full flex flex-col items-center overflow-auto bg-[var(--reader-bg)]" onClick={handleClick} onWheel={handleWheel}>
+    <div className="h-full flex flex-col items-center overflow-auto bg-[var(--reader-bg)]" onClick={handleClick}>
       <div className="relative py-8">
         <canvas ref={canvasRef} className="shadow-2xl" />
         {isRendering && (
