@@ -15,7 +15,9 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
+    const root = document.documentElement
+    root.classList.remove('dark', 'light', 'sepia')
+    root.classList.add(theme)
   }, [theme])
 
   const openBook = (bookId: number) => {

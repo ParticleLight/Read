@@ -69,6 +69,8 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
 
       if (theme === 'dark') {
         context.filter = 'invert(0.85) hue-rotate(180deg)'
+      } else if (theme === 'sepia') {
+        context.filter = 'sepia(0.3) brightness(0.95)'
       } else {
         context.filter = 'none'
       }

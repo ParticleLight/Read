@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
+import { useSettingsStore } from '../../stores/settingsStore'
 import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
 import { safeText } from '../../utils/safeText'
@@ -10,6 +11,7 @@ interface LibraryProps {
 
 export function Library({ onOpenBook }: LibraryProps) {
   const { books, isLoading, viewMode, searchQuery, sortBy, setViewMode, setSearchQuery, setSortBy, importBooks, loadBooks } = useLibraryStore()
+  const { theme, setTheme } = useSettingsStore()
   const [isDragOver, setIsDragOver] = useState(false)
 
   const filteredBooks = books.filter((book) => {
@@ -55,21 +57,21 @@ export function Library({ onOpenBook }: LibraryProps) {
 
   return (
     <div
-      className="h-screen flex flex-col bg-gray-900"
+      className="h-screen flex flex-col bg-[var(--reader-bg)]"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
       {/* Header */}
-      <header className="drag-region flex items-center justify-between px-6 py-4 border-b border-gray-800 bg-gray-900/80 backdrop-blur-sm">
+      <header className="drag-region flex items-center justify-between px-6 py-4 border-b border-[var(--reader-border)] bg-[var(--reader-bg)]/80 backdrop-blur-sm">
         <div className="no-drag flex items-center gap-4">
-          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+          <h1 className="text-xl font-bold text-[var(--reader-text)] flex items-center gap-2">
             <svg className="w-6 h-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
             电子书阅读器
           </h1>
-          <span className="text-sm text-gray-500">{books.length} 本书</span>
+          <span className="text-sm text-[var(--reader-text)] opacity-60">{books.length} 本书</span>
         </div>
 
         <div className="no-drag flex items-center gap-3">
@@ -83,7 +85,7 @@ export function Library({ onOpenBook }: LibraryProps) {
               placeholder="搜索书名或作者..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-64"
+              className="pl-10 pr-4 py-2 bg-[var(--reader-sidebar)] border border-[var(--reader-border)] rounded-lg text-sm text-[var(--reader-text)] placeholder-gray-500 focus:outline-none focus:border-indigo-500 w-64"
             />
           </div>
 
@@ -91,7 +93,7 @@ export function Library({ onOpenBook }: LibraryProps) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as any)}
-            className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-300 focus:outline-none"
+            className="px-3 py-2 bg-[var(--reader-sidebar)] border border-[var(--reader-border)] rounded-lg text-sm text-[var(--reader-text)] focus:outline-none"
           >
             <option value="last_opened">最近阅读</option>
             <option value="added_at">添加时间</option>
@@ -100,10 +102,10 @@ export function Library({ onOpenBook }: LibraryProps) {
           </select>
 
           {/* View Mode */}
-          <div className="flex bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+          <div className="flex bg-[var(--reader-sidebar)] rounded-lg border border-[var(--reader-border)] overflow-hidden">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-2 ${viewMode === 'grid' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`p-2 ${viewMode === 'grid' ? 'bg-[var(--reader-accent)] text-white' : 'text-gray-400 hover:text-[var(--reader-text)]'}`}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 13.5v-3z" />
@@ -111,7 +113,7 @@ export function Library({ onOpenBook }: LibraryProps) {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`p-2 ${viewMode === 'list' ? 'bg-indigo-600 text-white' : 'text-gray-400 hover:text-white'}`}
+              className={`p-2 ${viewMode === 'list' ? 'bg-[var(--reader-accent)] text-white' : 'text-gray-400 hover:text-[var(--reader-text)]'}`}
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 16 16">
                 <path fillRule="evenodd" d="M2.5 12a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5z" />
@@ -126,6 +128,21 @@ export function Library({ onOpenBook }: LibraryProps) {
             </svg>
             导入
           </button>
+
+          {/* Theme */}
+          <div className="flex items-center gap-1 bg-[var(--reader-sidebar)] rounded-lg p-1 border border-[var(--reader-border)]">
+            {(['light', 'dark', 'sepia'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setTheme(t)}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  theme === t ? 'bg-[var(--reader-accent)] text-white' : 'text-[var(--reader-text)] opacity-60 hover:opacity-100'
+                }`}
+              >
+                {t === 'light' ? '亮' : t === 'dark' ? '暗' : '护眼'}
+              </button>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -147,7 +164,7 @@ export function Library({ onOpenBook }: LibraryProps) {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
           </div>
         ) : sortedBooks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-gray-500">
+          <div className="flex flex-col items-center justify-center h-full text-[var(--reader-text)] opacity-60">
             <svg className="w-24 h-24 mb-4 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>

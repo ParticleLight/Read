@@ -108,7 +108,7 @@ export function ComicRenderer({ book, content, bookId }: ComicRendererProps) {
   }
 
   return (
-    <div className="h-full overflow-auto bg-black flex flex-col items-center">
+    <div className="h-full overflow-auto bg-[var(--reader-bg)] flex flex-col items-center">
       {/* Scroll mode - show all images */}
       <div className="w-full max-w-4xl">
         {images.map((url, index) => (
