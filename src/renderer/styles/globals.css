@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --reader-bg: #1a1a2e;
+  --reader-text: #e2e8f0;
+  --reader-accent: #6366f1;
+  --reader-sidebar: #16213e;
+  --reader-border: #2d3748;
+}
+
+.light {
+  --reader-bg: #ffffff;
+  --reader-text: #1a202c;
+  --reader-accent: #4f46e5;
+  --reader-sidebar: #f7fafc;
+  --reader-border: #e2e8f0;
+}
+
+.sepia {
+  --reader-bg: #f4ecd8;
+  --reader-text: #5b4636;
+  --reader-accent: #8b6914;
+  --reader-sidebar: #efe6d5;
+  --reader-border: #d4c5a9;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Noto Sans SC', system-ui, -apple-system, sans-serif;
+  background-color: var(--reader-bg);
+  color: var(--reader-text);
+  overflow: hidden;
+  height: 100vh;
+}
+
+#root {
+  height: 100vh;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(128, 128, 128, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(128, 128, 128, 0.5);
+}
+
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.reader-content {
+  line-height: 1.8;
+  font-size: 18px;
+}
+
+.reader-content img {
+  max-width: 100%;
+  height: auto;
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200 font-medium;
+  }
+
+  .btn-secondary {
+    @apply px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors duration-200;
+  }
+
+  .btn-ghost {
+    @apply px-3 py-2 hover:bg-gray-700/50 text-gray-400 hover:text-gray-200 rounded-lg transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-gray-800 border border-gray-700 rounded-xl overflow-hidden;
+  }
+}

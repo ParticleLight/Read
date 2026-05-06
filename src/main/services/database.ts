@@ -1,0 +1,264 @@
+import { Low } from 'lowdb'
+import { JSONFile } from 'lowdb/node'
+import { app } from 'electron'
+import { join } from 'path'
+import { existsSync, mkdirSync } from 'fs'
+
+interface Book {
+  id: number
+  title: string
+  author?: string
+  format: string
+  file_path: string
+  file_size: number
+  cover_path?: string
+  description?: string
+  publisher?: string
+  publish_date?: string
+  isbn?: string
+  language?: string
+  added_at: string
+  last_opened?: string
+}
+
+interface ReadingProgress {
+  book_id: number
+  progress: number
+  cfi?: string
+  page?: number
+  scroll_position: number
+  updated_at: string
+}
+
+interface Bookmark {
+  id: number
+  book_id: number
+  cfi?: string
+  page?: number
+  title?: string
+  note?: string
+  created_at: string
+}
+
+interface Highlight {
+  id: number
+  book_id: number
+  cfi?: string
+  page?: number
+  text: string
+  color: string
+  note?: string
+  created_at: string
+}
+
+interface Note {
+  id: number
+  book_id: number
+  highlight_id?: number
+  cfi?: string
+  page?: number
+  content: string
+  created_at: string
+  updated_at: string
+}
+
+interface DBData {
+  books: Book[]
+  reading_progress: ReadingProgress[]
+  bookmarks: Bookmark[]
+  highlights: Highlight[]
+  notes: Note[]
+  settings: Record<string, any>
+  nextId: number
+}
+
+const defaultData: DBData = {
+  books: [],
+  reading_progress: [],
+  bookmarks: [],
+  highlights: [],
+  notes: [],
+  settings: {},
+  nextId: 1,
+}
+
+export class DatabaseService {
+  private db: Low<DBData>
+
+  constructor() {
+    const dbDir = join(app.getPath('userData'), 'data')
+    if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true })
+    const dbPath = join(dbDir, 'reader.json')
+
+    const adapter = new JSONFile<DBData>(dbPath)
+    this.db = new Low<DBData>(adapter, defaultData)
+    this.db.read()
+  }
+
+  private getNextId(): number {
+    const id = this.db.data.nextId
+    this.db.data.nextId++
+    return id
+  }
+
+  // Books
+  getBooks(): Book[] {
+    return this.db.data.books.sort((a, b) => {
+      const aTime = a.last_opened || a.added_at
+      const bTime = b.last_opened || b.added_at
+      return new Date(bTime).getTime() - new Date(aTime).getTime()
+    })
+  }
+
+  getBook(id: number): Book | undefined {
+    return this.db.data.books.find((b) => b.id === id)
+  }
+
+  getBookByPath(filePath: string): Book | undefined {
+    return this.db.data.books.find((b) => b.file_path === filePath)
+  }
+
+  insertBook(book: Omit<Book, 'id' | 'added_at'>): Book {
+    const newBook: Book = {
+      ...book,
+      id: this.getNextId(),
+      added_at: new Date().toISOString(),
+    }
+    this.db.data.books.push(newBook)
+    this.db.write()
+    return newBook
+  }
+
+  updateBookLastOpened(id: number): void {
+    const book = this.db.data.books.find((b) => b.id === id)
+    if (book) {
+      book.last_opened = new Date().toISOString()
+      this.db.write()
+    }
+  }
+
+  deleteBook(id: number): void {
+    this.db.data.books = this.db.data.books.filter((b) => b.id !== id)
+    this.db.data.reading_progress = this.db.data.reading_progress.filter((p) => p.book_id !== id)
+    this.db.data.bookmarks = this.db.data.bookmarks.filter((b) => b.book_id !== id)
+    this.db.data.highlights = this.db.data.highlights.filter((h) => h.book_id !== id)
+    this.db.data.notes = this.db.data.notes.filter((n) => n.book_id !== id)
+    this.db.write()
+  }
+
+  // Reading Progress
+  getReadingProgress(bookId: number): ReadingProgress | undefined {
+    return this.db.data.reading_progress.find((p) => p.book_id === bookId)
+  }
+
+  upsertReadingProgress(bookId: number, progress: Omit<ReadingProgress, 'book_id' | 'updated_at'>): void {
+    const existing = this.db.data.reading_progress.find((p) => p.book_id === bookId)
+    if (existing) {
+      existing.progress = progress.progress
+      existing.cfi = progress.cfi
+      existing.page = progress.page
+      existing.scroll_position = progress.scroll_position
+      existing.updated_at = new Date().toISOString()
+    } else {
+      this.db.data.reading_progress.push({
+        book_id: bookId,
+        ...progress,
+        updated_at: new Date().toISOString(),
+      })
+    }
+    this.db.write()
+  }
+
+  // Bookmarks
+  getBookmarks(bookId: number): Bookmark[] {
+    return this.db.data.bookmarks
+      .filter((b) => b.book_id === bookId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+
+  addBookmark(bookmark: Omit<Bookmark, 'id' | 'created_at'>): Bookmark {
+    const newBookmark: Bookmark = {
+      ...bookmark,
+      id: this.getNextId(),
+      created_at: new Date().toISOString(),
+    }
+    this.db.data.bookmarks.push(newBookmark)
+    this.db.write()
+    return newBookmark
+  }
+
+  deleteBookmark(id: number): void {
+    this.db.data.bookmarks = this.db.data.bookmarks.filter((b) => b.id !== id)
+    this.db.write()
+  }
+
+  // Highlights
+  getHighlights(bookId: number): Highlight[] {
+    return this.db.data.highlights
+      .filter((h) => h.book_id === bookId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+
+  addHighlight(highlight: Omit<Highlight, 'id' | 'created_at'>): Highlight {
+    const newHighlight: Highlight = {
+      ...highlight,
+      id: this.getNextId(),
+      created_at: new Date().toISOString(),
+    }
+    this.db.data.highlights.push(newHighlight)
+    this.db.write()
+    return newHighlight
+  }
+
+  deleteHighlight(id: number): void {
+    this.db.data.highlights = this.db.data.highlights.filter((h) => h.id !== id)
+    this.db.write()
+  }
+
+  // Notes
+  getNotes(bookId: number): Note[] {
+    return this.db.data.notes
+      .filter((n) => n.book_id === bookId)
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  }
+
+  addNote(note: Omit<Note, 'id' | 'created_at' | 'updated_at'>): Note {
+    const newNote: Note = {
+      ...note,
+      id: this.getNextId(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }
+    this.db.data.notes.push(newNote)
+    this.db.write()
+    return newNote
+  }
+
+  updateNote(id: number, content: string): void {
+    const note = this.db.data.notes.find((n) => n.id === id)
+    if (note) {
+      note.content = content
+      note.updated_at = new Date().toISOString()
+      this.db.write()
+    }
+  }
+
+  deleteNote(id: number): void {
+    this.db.data.notes = this.db.data.notes.filter((n) => n.id !== id)
+    this.db.write()
+  }
+
+  // Settings
+  getSettings(): Record<string, any> {
+    return this.db.data.settings
+  }
+
+  updateSettings(settings: Record<string, any>): void {
+    this.db.data.settings = { ...this.db.data.settings, ...settings }
+    this.db.write()
+  }
+
+  close() {
+    this.db.write()
+  }
+}

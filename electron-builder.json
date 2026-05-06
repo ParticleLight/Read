@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/electron-builder.json",
+  "appId": "com.ebook.reader",
+  "productName": "EBook Reader",
+  "directories": {
+    "output": "release"
+  },
+  "files": [
+    "dist/**/*"
+  ],
+  "asar": true,
+  "win": {
+    "target": ["nsis"],
+    "icon": "resources/icon.ico"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  },
+  "mac": {
+    "target": ["dmg"],
+    "icon": "resources/icon.icns"
+  },
+  "linux": {
+    "target": ["AppImage"],
+    "icon": "resources/icon.png"
+  }
+}

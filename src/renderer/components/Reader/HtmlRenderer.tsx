@@ -1,0 +1,141 @@
+import { useEffect, useState, useRef } from 'react'
+import MarkdownIt from 'markdown-it'
+import { XMLParser } from 'fast-xml-parser'
+import { useReaderStore } from '../../stores/readerStore'
+import { useSettingsStore } from '../../stores/settingsStore'
+
+interface HtmlRendererProps {
+  book: any
+  content: Buffer
+  bookId: number
+}
+
+const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
+
+export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
+  const [htmlContent, setHtmlContent] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const { progress, setProgress, saveProgress, setTableOfContents } = useReaderStore()
+  const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
+
+  useEffect(() => {
+    const text = content.toString('utf-8')
+
+    switch (book.format) {
+      case 'markdown':
+        setHtmlContent(md.render(text))
+        break
+      case 'fb2':
+        setHtmlContent(parseFb2(text))
+        break
+      case 'html':
+        setHtmlContent(text)
+        break
+      default:
+        setHtmlContent(`<pre style="white-space: pre-wrap; font-family: inherit;">${escapeHtml(text)}</pre>`)
+    }
+  }, [content, book.format])
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+
+    const handleScroll = () => {
+      const scrollTop = container.scrollTop
+      const scrollHeight = container.scrollHeight - container.clientHeight
+      const progressPercent = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0
+      setProgress({ progress: progressPercent, scrollPosition: scrollTop })
+      saveProgress()
+    }
+
+    container.addEventListener('scroll', handleScroll)
+
+    if (progress.scrollPosition) {
+      container.scrollTop = progress.scrollPosition
+    }
+
+    return () => container.removeEventListener('scroll', handleScroll)
+  }, [htmlContent])
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const headings = containerRef.current.querySelectorAll('h1, h2, h3, h4')
+    const toc = Array.from(headings).map((h, i) => ({
+      id: `heading-${i}`,
+      label: h.textContent || '',
+      level: parseInt(h.tagName[1]),
+      href: `heading-${i}`,
+    }))
+    setTableOfContents(toc)
+
+    headings.forEach((h, i) => {
+      h.id = `heading-${i}`
+    })
+  }, [htmlContent])
+
+  return (
+    <div
+      ref={containerRef}
+      className="h-full overflow-auto bg-[var(--reader-bg)] text-[var(--reader-text)]"
+    >
+      <div
+        className="reader-content max-w-3xl mx-auto"
+        style={{
+          fontSize: `${fontSize}px`,
+          fontFamily,
+          lineHeight,
+          padding: `${margin}px`,
+          textAlign,
+        }}
+        dangerouslySetInnerHTML={{ __html: htmlContent }}
+      />
+    </div>
+  )
+}
+
+function parseFb2(xml: string): string {
+  const parser = new XMLParser({ ignoreAttributes: false })
+  const parsed = parser.parse(xml)
+  const body = parsed?.FictionBook?.body
+
+  if (!body) return '<p>无法解析 FB2 文件</p>'
+
+  let html = ''
+  const sections = Array.isArray(body.section) ? body.section : [body.section]
+
+  for (const section of sections) {
+    if (section?.title) {
+      const titleText = typeof section.title === 'string' ? section.title : section.title['p'] || ''
+      html += `<h2>${titleText}</h2>`
+    }
+
+    const paragraphs = Array.isArray(section?.p) ? section.p : section?.p ? [section.p] : []
+    for (const p of paragraphs) {
+      if (typeof p === 'string') {
+        html += `<p>${p}</p>`
+      } else if (p?.['#text']) {
+        html += `<p>${p['#text']}</p>`
+      }
+    }
+
+    if (section?.epigraph) {
+      const epigraph = Array.isArray(section.epigraph) ? section.epigraph : [section.epigraph]
+      for (const e of epigraph) {
+        const text = typeof e === 'string' ? e : e?.p || ''
+        html += `<blockquote>${text}</blockquote>`
+      }
+    }
+  }
+
+  return html || '<p>空文档</p>'
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
