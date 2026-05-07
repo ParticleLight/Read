@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-05-08',
+    changes: [
+      { type: 'improve', text: '渲染器组件懒加载，主包从 2.5MB 降至 651KB，启动速度提升' },
+      { type: 'improve', text: '排除 pdfjs-dist 冗余资源，减少约 25MB 安装包体积' },
+      { type: 'improve', text: '排除 epubjs 冗余文件，减少约 2.7MB 安装包体积' },
+      { type: 'improve', text: '精简 Chromium 语言包，减少约 35MB 安装包体积' },
+      { type: 'improve', text: '移除未使用的 react-router-dom 依赖' },
+      { type: 'fix', text: '提取重复代码到公共工具文件，消除多处代码冗余' },
+    ],
+  },
+  {
     version: '1.2.0',
     date: '2026-05-07',
     changes: [

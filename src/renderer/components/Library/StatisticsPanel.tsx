@@ -1,30 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import type { Book } from '../../stores/libraryStore'
+import { formatReadingTime, extractTextPreview } from '../../utils/format'
 
 interface StatisticsPanelProps {
   onClose: () => void
   isClosing: boolean
-}
-
-function formatReadingTime(seconds: number): string {
-  if (seconds < 60) return `${seconds}秒`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}分钟`
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  return remainingMinutes > 0 ? `${hours}小时${remainingMinutes}分钟` : `${hours}小时`
-}
-
-async function extractTextPreview(filePath: string): Promise<string | null> {
-  try {
-    const content = await window.electronAPI.readFile(filePath)
-    const text = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(content))
-    const cleaned = text.replace(/\s+/g, ' ').trim()
-    return cleaned.slice(0, 80) || null
-  } catch {
-    return null
-  }
 }
 
 function BookRow({ book, readingTime, progress }: { book: Book; readingTime: number; progress: number }) {

@@ -2,22 +2,11 @@ import { useState } from 'react'
 import { Book } from '../../stores/libraryStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { safeText } from '../../utils/safeText'
+import { formatColors } from '../../utils/format'
 
 interface BookListProps {
   books: Book[]
   onOpenBook: (bookId: number) => void
-}
-
-const formatColors: Record<string, string> = {
-  epub: 'bg-blue-600',
-  pdf: 'bg-red-600',
-  mobi: 'bg-orange-600',
-  txt: 'bg-gray-600',
-  fb2: 'bg-green-600',
-  cbz: 'bg-purple-600',
-  cbr: 'bg-pink-600',
-  html: 'bg-cyan-600',
-  markdown: 'bg-teal-600',
 }
 
 function formatFileSize(bytes: number): string {

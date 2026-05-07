@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 
@@ -22,27 +22,20 @@ function useAnimatedMount(isOpen: boolean, duration = 200) {
 
   return { shouldRender, isClosing }
 }
-import { EpubRenderer } from './EpubRenderer'
-import { PdfRenderer } from './PdfRenderer'
-import { ComicRenderer } from './ComicRenderer'
-import { HtmlRenderer } from './HtmlRenderer'
-import { TextRenderer } from './TextRenderer'
 import { Sidebar } from './Sidebar'
 import { ReaderControls } from './ReaderControls'
-import { SettingsPanel } from '../Settings/SettingsPanel'
+import { formatReadingTime } from '../../utils/format'
+
+const EpubRenderer = lazy(() => import('./EpubRenderer').then(m => ({ default: m.EpubRenderer })))
+const PdfRenderer = lazy(() => import('./PdfRenderer').then(m => ({ default: m.PdfRenderer })))
+const ComicRenderer = lazy(() => import('./ComicRenderer').then(m => ({ default: m.ComicRenderer })))
+const HtmlRenderer = lazy(() => import('./HtmlRenderer').then(m => ({ default: m.HtmlRenderer })))
+const TextRenderer = lazy(() => import('./TextRenderer').then(m => ({ default: m.TextRenderer })))
+const SettingsPanel = lazy(() => import('../Settings/SettingsPanel').then(m => ({ default: m.SettingsPanel })))
 
 interface ReaderViewProps {
   bookId: number
   onClose: () => void
-}
-
-function formatReadingTime(seconds: number): string {
-  if (seconds < 60) return `${seconds}秒`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}分钟`
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-  return remainingMinutes > 0 ? `${hours}小时${remainingMinutes}分钟` : `${hours}小时`
 }
 
 export function ReaderView({ bookId, onClose }: ReaderViewProps) {
@@ -152,26 +145,33 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
     )
   }
 
+  const loadingFallback = (
+    <div className="h-full flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
+    </div>
+  )
+
   const renderContent = () => {
     const props = { book, content: bookContent, bookId }
 
-    switch (book.format) {
-      case 'epub':
-        return <EpubRenderer {...props} />
-      case 'pdf':
-        return <PdfRenderer {...props} />
-      case 'cbz':
-      case 'cbr':
-        return <ComicRenderer {...props} />
-      case 'fb2':
-      case 'html':
-      case 'markdown':
-        return <HtmlRenderer {...props} />
-      case 'txt':
-      case 'mobi':
-      default:
-        return <TextRenderer {...props} />
-    }
+    return (
+      <Suspense fallback={loadingFallback}>
+        {(() => {
+          switch (book.format) {
+            case 'epub': return <EpubRenderer {...props} />
+            case 'pdf': return <PdfRenderer {...props} />
+            case 'cbz':
+            case 'cbr': return <ComicRenderer {...props} />
+            case 'fb2':
+            case 'html':
+            case 'markdown': return <HtmlRenderer {...props} />
+            case 'txt':
+            case 'mobi':
+            default: return <TextRenderer {...props} />
+          }
+        })()}
+      </Suspense>
+    )
   }
 
   return (
@@ -245,7 +245,9 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
 
       {/* Settings Panel */}
       {renderSettings && (
-        <SettingsPanel onClose={() => setShowSettings(false)} format={book.format} isClosing={settingsClosing} />
+        <Suspense fallback={null}>
+          <SettingsPanel onClose={() => setShowSettings(false)} format={book.format} isClosing={settingsClosing} />
+        </Suspense>
       )}
     </div>
   )

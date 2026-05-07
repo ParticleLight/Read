@@ -203,7 +203,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-[var(--reader-text)]">ParticleBook</h3>
-                  <p className="text-sm text-[var(--reader-text)] opacity-50">v1.2.0</p>
+                  <p className="text-sm text-[var(--reader-text)] opacity-50">v1.3.0</p>
                 </div>
               </div>
               <p className="text-sm text-[var(--reader-text)] opacity-70 leading-relaxed mb-3">

@@ -1,11 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
 import { BookShelfPanel } from './BookShelfPanel'
-import { StatisticsPanel } from './StatisticsPanel'
-import { ChangelogPanel } from './ChangelogPanel'
 import { safeText } from '../../utils/safeText'
+
+const StatisticsPanel = lazy(() => import('./StatisticsPanel').then(m => ({ default: m.StatisticsPanel })))
+const ChangelogPanel = lazy(() => import('./ChangelogPanel').then(m => ({ default: m.ChangelogPanel })))
 
 interface LibraryProps {
   onOpenBook: (bookId: number) => void
@@ -240,12 +241,16 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
 
       {/* Statistics Panel */}
       {showStatistics && (
-        <StatisticsPanel onClose={() => setShowStatistics(false)} isClosing={false} />
+        <Suspense fallback={null}>
+          <StatisticsPanel onClose={() => setShowStatistics(false)} isClosing={false} />
+        </Suspense>
       )}
 
       {/* Changelog Panel */}
       {showChangelog && (
-        <ChangelogPanel onClose={() => setShowChangelog(false)} isClosing={false} />
+        <Suspense fallback={null}>
+          <ChangelogPanel onClose={() => setShowChangelog(false)} isClosing={false} />
+        </Suspense>
       )}
     </div>
   )
