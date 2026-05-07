@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
@@ -49,26 +49,46 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
 
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
+    dragCounterRef.current = 0
     setIsDragOver(false)
-    const files = Array.from(e.dataTransfer.files).map((f: any) => f.path).filter(Boolean)
-    if (files.length > 0) {
-      await importBooks(files)
+    const filePaths: string[] = []
+    for (const file of Array.from(e.dataTransfer.files)) {
+      try {
+        const p = window.electronAPI.getFilePath(file)
+        if (p) filePaths.push(p)
+      } catch {}
+    }
+    if (filePaths.length > 0) {
+      await importBooks(filePaths)
     }
   }, [importBooks])
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const dragCounterRef = useRef(0)
+
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
     e.preventDefault()
+    dragCounterRef.current++
     setIsDragOver(true)
   }, [])
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+  }, [])
+
   const handleDragLeave = useCallback(() => {
-    setIsDragOver(false)
+    dragCounterRef.current--
+    if (dragCounterRef.current <= 0) {
+      dragCounterRef.current = 0
+      setIsDragOver(false)
+    }
   }, [])
 
   return (
     <div
       className="h-screen flex flex-col bg-[var(--reader-bg)]"
       onDrop={handleDrop}
+      onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
@@ -187,7 +207,7 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
         {/* Book area */}
         <div className="flex-1 overflow-y-auto p-6">
         {isDragOver && (
-          <div className="absolute inset-6 z-50 flex items-center justify-center bg-indigo-600/20 border-2 border-dashed border-indigo-400 rounded-2xl">
+          <div className="absolute inset-6 z-50 flex items-center justify-center bg-indigo-600/20 border-2 border-dashed border-indigo-400 rounded-2xl pointer-events-none">
             <div className="text-center">
               <svg className="w-16 h-16 mx-auto text-indigo-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />

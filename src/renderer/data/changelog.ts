@@ -16,6 +16,8 @@ export const changelog: ChangelogEntry[] = [
       { type: 'feature', text: '添加更新日志面板，记录每次更新内容' },
       { type: 'improve', text: '降低护眼模式亮度，减少视觉疲劳' },
       { type: 'improve', text: '应用正式命名为 ParticleBook' },
+      { type: 'fix', text: '修复拖拽文件到主界面无法导入的问题（Electron 35 移除了 File.path）' },
+      { type: 'fix', text: '修复拖拽文件时界面闪烁的问题' },
       { type: 'fix', text: '清理残留调试日志' },
     ],
   },

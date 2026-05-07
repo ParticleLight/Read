@@ -42,6 +42,9 @@ interface ElectronAPI {
   removeBookFromShelf: (shelfId: number, bookId: number) => Promise<void>
   getShelvesForBook: (bookId: number) => Promise<number[]>
 
+  // Utilities
+  getFilePath: (file: File) => string
+
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>
   endReadingSession: (sessionId: number) => Promise<void>

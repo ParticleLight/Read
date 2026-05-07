@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 
 export interface ElectronAPI {
   // File operations
@@ -49,6 +49,9 @@ export interface ElectronAPI {
   addBookToShelf: (shelfId: number, bookId: number) => Promise<void>
   removeBookFromShelf: (shelfId: number, bookId: number) => Promise<void>
   getShelvesForBook: (bookId: number) => Promise<number[]>
+
+  // Utilities
+  getFilePath: (file: File) => string
 
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>
@@ -101,6 +104,8 @@ const api: ElectronAPI = {
   addBookToShelf: (shelfId, bookId) => ipcRenderer.invoke('db:addBookToShelf', shelfId, bookId),
   removeBookFromShelf: (shelfId, bookId) => ipcRenderer.invoke('db:removeBookFromShelf', shelfId, bookId),
   getShelvesForBook: (bookId) => ipcRenderer.invoke('db:getShelvesForBook', bookId),
+
+  getFilePath: (file) => webUtils.getPathForFile(file),
 
   startReadingSession: (bookId) => ipcRenderer.invoke('db:startReadingSession', bookId),
   endReadingSession: (sessionId) => ipcRenderer.invoke('db:endReadingSession', sessionId),
