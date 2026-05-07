@@ -4,6 +4,7 @@ import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
 import { BookShelfPanel } from './BookShelfPanel'
 import { StatisticsPanel } from './StatisticsPanel'
+import { ChangelogPanel } from './ChangelogPanel'
 import { safeText } from '../../utils/safeText'
 
 interface LibraryProps {
@@ -15,6 +16,7 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
   const { books, isLoading, viewMode, searchQuery, sortBy, activeShelfId, bookshelves, setViewMode, setSearchQuery, setSortBy, importBooks, loadBooks, loadBookshelves, loadReadingTime, loadReadingProgress } = useLibraryStore()
   const [isDragOver, setIsDragOver] = useState(false)
   const [showStatistics, setShowStatistics] = useState(false)
+  const [showChangelog, setShowChangelog] = useState(false)
 
   useEffect(() => {
     loadBookshelves()
@@ -150,6 +152,17 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
             </svg>
           </button>
 
+          {/* Changelog */}
+          <button
+            onClick={() => setShowChangelog(true)}
+            className="p-2 text-[var(--reader-text)] opacity-60 hover:opacity-100 rounded-lg hover:bg-[var(--reader-sidebar)] transition-colors"
+            title="更新日志"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+          </button>
+
           {/* Settings */}
           <button
             onClick={onOpenSettings}
@@ -208,6 +221,11 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
       {/* Statistics Panel */}
       {showStatistics && (
         <StatisticsPanel onClose={() => setShowStatistics(false)} isClosing={false} />
+      )}
+
+      {/* Changelog Panel */}
+      {showChangelog && (
+        <ChangelogPanel onClose={() => setShowChangelog(false)} isClosing={false} />
       )}
     </div>
   )

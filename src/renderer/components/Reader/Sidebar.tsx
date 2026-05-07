@@ -176,7 +176,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
               <p className="text-sm text-gray-500 text-center py-4">暂无高亮</p>
             ) : (
               highlights.map((hl) => (
-                <div key={hl.id} className="group p-2 rounded-lg hover:bg-gray-700/50">
+                <div key={hl.id} className="group p-2 rounded-lg hover:bg-gray-700/50 cursor-pointer" onClick={() => navigateTo({ page: hl.page, cfi: hl.cfi })}>
                   <div className="flex items-start gap-2">
                     <div className="w-3 h-3 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: hl.color }} />
                     <div className="flex-1 min-w-0">
@@ -231,7 +231,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
               <p className="text-sm text-gray-500 text-center py-4">暂无笔记</p>
             ) : (
               notes.map((note) => (
-                <div key={note.id} className="group p-3 rounded-lg hover:bg-gray-700/50">
+                <div key={note.id} className="group p-3 rounded-lg hover:bg-gray-700/50 cursor-pointer" onClick={() => navigateTo({ page: note.page, cfi: note.cfi })}>
                   <p className="text-sm text-gray-300 whitespace-pre-wrap">{note.content}</p>
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-gray-500">{new Date(note.updated_at).toLocaleString('zh-CN')}</p>

@@ -116,7 +116,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
           }
         }
         if (currentIndex >= 0) {
-          progressPercent = Math.round(((currentIndex + 1) / spineLen) * 100)
+          progressPercent = ((currentIndex + 1) / spineLen) * 100
         }
       }
       setProgress({ progress: progressPercent, cfi })
@@ -264,7 +264,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
         const loc = renditionRef.current?.currentLocation() as any
         if (loc?.start?.cfi) {
           const nextNum = bookmarks.length + 1
-          addBookmark({ book_id: bookId, cfi: loc.start.cfi, progress: Math.round(progress.progress * 10) / 10, title: `书签${nextNum}` })
+          addBookmark({ book_id: bookId, cfi: loc.start.cfi, progress: progress.progress, title: `书签${nextNum}` })
         }
       }
     }

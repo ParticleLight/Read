@@ -110,7 +110,4 @@ const api: ElectronAPI = {
   getAllReadingProgress: () => ipcRenderer.invoke('db:getAllReadingProgress'),
 }
 
-console.log('Preload script loaded, api keys:', Object.keys(api).join(', '))
-console.log('updateBookmarkTitle exists:', typeof api.updateBookmarkTitle)
-
 contextBridge.exposeInMainWorld('electronAPI', api)

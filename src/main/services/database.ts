@@ -288,13 +288,10 @@ export class DatabaseService {
   }
 
   updateBookmarkTitle(id: number, title: string): void {
-    console.log('Database updateBookmarkTitle called:', { id, title })
     const bookmark = this.db.data.bookmarks.find((b) => b.id === id)
-    console.log('Found bookmark:', bookmark)
     if (bookmark) {
       bookmark.title = title
       this.db.write()
-      console.log('Bookmark updated and written to DB')
     }
   }
 

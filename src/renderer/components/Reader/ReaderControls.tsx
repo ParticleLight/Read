@@ -41,7 +41,7 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
         book_id: bookId,
         page: currentPage,
         cfi: progress.cfi,
-        progress: Math.round(progress.progress * 10) / 10,
+        progress: progress.progress,
         title: `书签${nextNum}`,
       })
     }

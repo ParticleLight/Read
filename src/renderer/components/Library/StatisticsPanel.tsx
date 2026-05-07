@@ -72,14 +72,14 @@ function BookRow({ book, readingTime, progress }: { book: Book; readingTime: num
         <div className="mt-1.5 h-1.5 bg-white/10 rounded-full overflow-hidden">
           <div
             className="h-full bg-indigo-500 rounded-full transition-all"
-            style={{ width: `${Math.round(progress * 100)}%` }}
+            style={{ width: `${Math.min(100, Math.round(progress))}%` }}
           />
         </div>
       </div>
 
       {/* Stats */}
       <div className="text-right flex-shrink-0 w-24">
-        <div className="text-sm text-white/70">{Math.round(progress * 100)}%</div>
+        <div className="text-sm text-white/70">{Math.min(100, Math.round(progress * 10) / 10)}%</div>
         <div className="text-xs text-white/40">
           {readingTime > 0 ? formatReadingTime(readingTime) : '未阅读'}
         </div>

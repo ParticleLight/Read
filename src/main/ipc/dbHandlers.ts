@@ -19,10 +19,7 @@ export function registerDbHandlers(db: DatabaseService) {
   ipcMain.handle('db:addBookmark', (_e, bookmark: any) => db.addBookmark(bookmark))
   ipcMain.handle('db:deleteBookmark', (_e, id: number) => db.deleteBookmark(id))
   ipcMain.handle('db:updateBookmarkTitle', (_e, id: number, title: string) => {
-    console.log('IPC updateBookmarkTitle called:', { id, title })
-    const result = db.updateBookmarkTitle(id, title)
-    console.log('IPC updateBookmarkTitle result:', result)
-    return result
+    return db.updateBookmarkTitle(id, title)
   })
 
   // Highlights

@@ -176,15 +176,12 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 
   updateBookmark: async (id: number, title: string) => {
     try {
-      console.log('updateBookmark called:', { id, title })
       await window.electronAPI.updateBookmarkTitle(id, title)
-      console.log('updateBookmark IPC completed')
       set({
         bookmarks: get().bookmarks.map((b) =>
           b.id === id ? { ...b, title } : b
         ),
       })
-      console.log('updateBookmark state updated')
     } catch (e) {
       console.error('Failed to update bookmark:', e)
     }
