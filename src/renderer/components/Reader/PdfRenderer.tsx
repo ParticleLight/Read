@@ -137,7 +137,7 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
       <div
         className="relative py-8"
         style={{
-          filter: theme === 'dark' ? 'invert(1) hue-rotate(180deg) brightness(0.9)' : theme === 'sepia' ? 'invert(1) hue-rotate(180deg) sepia(0.4) brightness(0.85)' : 'none'
+          filter: theme === 'dark' ? 'invert(1) hue-rotate(180deg) brightness(0.9)' : theme === 'sepia' ? 'invert(1) hue-rotate(180deg) sepia(0.4) brightness(0.7)' : 'none'
         }}
       >
         <canvas ref={canvasRef} className="shadow-2xl" />

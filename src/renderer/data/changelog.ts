@@ -14,6 +14,8 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       { type: 'feature', text: '高亮和笔记支持点击跳转到对应位置' },
       { type: 'feature', text: '添加更新日志面板，记录每次更新内容' },
+      { type: 'improve', text: '降低护眼模式亮度，减少视觉疲劳' },
+      { type: 'improve', text: '应用正式命名为 ParticleBook' },
       { type: 'fix', text: '清理残留调试日志' },
     ],
   },

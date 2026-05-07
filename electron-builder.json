@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/electron-builder.json",
-  "appId": "com.ebook.reader",
-  "productName": "电子书阅读器",
+  "appId": "com.particle.book",
+  "productName": "ParticleBook",
   "directories": {
     "output": "release"
   },

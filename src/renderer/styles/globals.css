@@ -19,11 +19,11 @@
 }
 
 .sepia {
-  --reader-bg: #2a2118;
-  --reader-text: #d4c4a8;
+  --reader-bg: #1a1510;
+  --reader-text: #c4b494;
   --reader-accent: #b8860b;
-  --reader-sidebar: #33291f;
-  --reader-border: #4a3d30;
+  --reader-sidebar: #211b14;
+  --reader-border: #3a3025;
 }
 
 * {

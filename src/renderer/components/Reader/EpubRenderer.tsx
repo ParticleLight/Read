@@ -247,8 +247,8 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
         themes.override('background', '#ffffff')
         break
       case 'sepia':
-        themes.override('color', '#d4c4a8')
-        themes.override('background', '#2a2118')
+        themes.override('color', '#c4b494')
+        themes.override('background', '#1a1510')
         break
     }
   }, [theme])
