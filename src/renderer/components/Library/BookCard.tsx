@@ -75,6 +75,15 @@ async function extractTextPreview(filePath: string): Promise<string | null> {
   }
 }
 
+function formatReadingTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}秒`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}分钟`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return remainingMinutes > 0 ? `${hours}小时${remainingMinutes}分钟` : `${hours}小时`
+}
+
 export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShelfId }: BookCardProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [textPreview, setTextPreview] = useState<string | null>(null)
@@ -83,7 +92,8 @@ export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShel
   const [confirmDelete, setConfirmDelete] = useState(false)
   const objectUrlRef = useRef<string | null>(null)
 
-  const { bookshelves, addBookToShelf } = useLibraryStore()
+  const { bookshelves, addBookToShelf, readingTimeMap } = useLibraryStore()
+  const readingTime = readingTimeMap[book.id] || 0
 
   useEffect(() => {
     let mounted = true
@@ -171,6 +181,14 @@ export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShel
       <div className="mt-2 px-1">
         <p className="text-sm font-medium text-[var(--reader-text)] truncate">{safeText(book.title)}</p>
         <p className="text-xs text-[var(--reader-text)] opacity-60 truncate">{safeText(book.author) || '未知作者'}</p>
+        {readingTime > 0 && (
+          <p className="text-xs text-[var(--reader-text)] opacity-40 mt-0.5 flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            已读 {formatReadingTime(readingTime)}
+          </p>
+        )}
       </div>
 
       {/* Context Menu */}

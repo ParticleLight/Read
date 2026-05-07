@@ -23,18 +23,26 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
   const themes = ['light', 'dark', 'sepia'] as const
 
   const currentPage = progress.page || 0
-  const isBookmarked = bookmarks.some((bm) => bm.page === currentPage)
+  const isBookmarked = bookmarks.some((bm) => {
+    if (progress.cfi && bm.cfi) return bm.cfi === progress.cfi
+    return bm.page === currentPage && currentPage !== 0
+  })
 
   const handleToggleBookmark = () => {
     if (isBookmarked) {
-      const bm = bookmarks.find((b) => b.page === currentPage)
+      const bm = bookmarks.find((b) => {
+        if (progress.cfi && b.cfi) return b.cfi === progress.cfi
+        return b.page === currentPage && currentPage !== 0
+      })
       if (bm) removeBookmark(bm.id)
     } else {
+      const nextNum = bookmarks.length + 1
       addBookmark({
         book_id: bookId,
         page: currentPage,
         cfi: progress.cfi,
-        title: `第 ${currentPage} 页`,
+        progress: Math.round(progress.progress * 10) / 10,
+        title: `书签${nextNum}`,
       })
     }
   }

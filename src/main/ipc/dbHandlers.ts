@@ -18,6 +18,12 @@ export function registerDbHandlers(db: DatabaseService) {
   ipcMain.handle('db:getBookmarks', (_e, bookId: number) => db.getBookmarks(bookId))
   ipcMain.handle('db:addBookmark', (_e, bookmark: any) => db.addBookmark(bookmark))
   ipcMain.handle('db:deleteBookmark', (_e, id: number) => db.deleteBookmark(id))
+  ipcMain.handle('db:updateBookmarkTitle', (_e, id: number, title: string) => {
+    console.log('IPC updateBookmarkTitle called:', { id, title })
+    const result = db.updateBookmarkTitle(id, title)
+    console.log('IPC updateBookmarkTitle result:', result)
+    return result
+  })
 
   // Highlights
   ipcMain.handle('db:getHighlights', (_e, bookId: number) => db.getHighlights(bookId))
@@ -39,6 +45,14 @@ export function registerDbHandlers(db: DatabaseService) {
   ipcMain.handle('db:addBookToShelf', (_e, shelfId: number, bookId: number) => db.addBookToShelf(shelfId, bookId))
   ipcMain.handle('db:removeBookFromShelf', (_e, shelfId: number, bookId: number) => db.removeBookFromShelf(shelfId, bookId))
   ipcMain.handle('db:getShelvesForBook', (_e, bookId: number) => db.getShelvesForBook(bookId))
+
+  // Reading Sessions
+  ipcMain.handle('db:startReadingSession', (_e, bookId: number) => db.startReadingSession(bookId))
+  ipcMain.handle('db:endReadingSession', (_e, sessionId: number) => db.endReadingSession(sessionId))
+  ipcMain.handle('db:updateReadingSessionDuration', (_e, sessionId: number, durationSeconds: number) => db.updateReadingSessionDuration(sessionId, durationSeconds))
+  ipcMain.handle('db:getReadingTime', (_e, bookId: number) => db.getReadingTimeForBook(bookId))
+  ipcMain.handle('db:getAllReadingTime', () => db.getReadingTimeForAllBooks())
+  ipcMain.handle('db:getAllReadingProgress', () => db.getAllReadingProgress())
 
   // Settings
   ipcMain.handle('db:getSettings', () => db.getSettings())

@@ -12,7 +12,12 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const text = new TextDecoder('utf-8').decode(content)
 
-  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
+  const { progress, setProgress, saveProgress, setTableOfContents, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
+
+  // Clear TOC on mount since TXT files don't have structured headings
+  useEffect(() => {
+    setTableOfContents([])
+  }, [])
   const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
 
   useEffect(() => {

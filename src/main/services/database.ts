@@ -35,6 +35,7 @@ interface Bookmark {
   book_id: number
   cfi?: string
   page?: number
+  progress?: number
   title?: string
   note?: string
   created_at: string
@@ -75,6 +76,14 @@ interface BookshelfBook {
   added_at: string
 }
 
+interface ReadingSession {
+  id: number
+  book_id: number
+  started_at: string
+  ended_at?: string
+  duration_seconds: number
+}
+
 interface DBData {
   books: Book[]
   reading_progress: ReadingProgress[]
@@ -83,6 +92,7 @@ interface DBData {
   notes: Note[]
   bookshelves: Bookshelf[]
   bookshelf_books: BookshelfBook[]
+  reading_sessions: ReadingSession[]
   settings: Record<string, any>
   book_settings: Record<number, Record<string, any>>
   nextId: number
@@ -96,6 +106,7 @@ const defaultData: DBData = {
   notes: [],
   bookshelves: [],
   bookshelf_books: [],
+  reading_sessions: [],
   settings: {},
   book_settings: {},
   nextId: 1,
@@ -115,6 +126,7 @@ export class DatabaseService {
       // Initialize missing fields for older database files
       if (!this.db.data.bookshelves) this.db.data.bookshelves = []
       if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
+      if (!this.db.data.reading_sessions) this.db.data.reading_sessions = []
       if (!this.db.data.book_settings) this.db.data.book_settings = {}
       this.db.write()
     })
@@ -168,7 +180,65 @@ export class DatabaseService {
     this.db.data.bookmarks = this.db.data.bookmarks.filter((b) => b.book_id !== id)
     this.db.data.highlights = this.db.data.highlights.filter((h) => h.book_id !== id)
     this.db.data.notes = this.db.data.notes.filter((n) => n.book_id !== id)
+    this.db.data.reading_sessions = this.db.data.reading_sessions.filter((s) => s.book_id !== id)
     this.db.write()
+  }
+
+  // Reading Sessions
+  startReadingSession(bookId: number): number {
+    const session: ReadingSession = {
+      id: this.getNextId(),
+      book_id: bookId,
+      started_at: new Date().toISOString(),
+      duration_seconds: 0,
+    }
+    this.db.data.reading_sessions.push(session)
+    this.db.write()
+    return session.id
+  }
+
+  endReadingSession(sessionId: number): void {
+    const session = this.db.data.reading_sessions.find((s) => s.id === sessionId)
+    if (session && !session.ended_at) {
+      session.ended_at = new Date().toISOString()
+      const started = new Date(session.started_at).getTime()
+      const ended = new Date(session.ended_at).getTime()
+      session.duration_seconds = Math.floor((ended - started) / 1000)
+      this.db.write()
+    }
+  }
+
+  updateReadingSessionDuration(sessionId: number, durationSeconds: number): void {
+    const session = this.db.data.reading_sessions.find((s) => s.id === sessionId)
+    if (session) {
+      session.duration_seconds = durationSeconds
+      this.db.write()
+    }
+  }
+
+  getReadingTimeForBook(bookId: number): number {
+    if (!this.db.data.reading_sessions) return 0
+    return this.db.data.reading_sessions
+      .filter((s) => s.book_id === bookId)
+      .reduce((total, s) => total + s.duration_seconds, 0)
+  }
+
+  getReadingTimeForAllBooks(): Record<number, number> {
+    if (!this.db.data.reading_sessions) return {}
+    const result: Record<number, number> = {}
+    for (const session of this.db.data.reading_sessions) {
+      if (!result[session.book_id]) result[session.book_id] = 0
+      result[session.book_id] += session.duration_seconds
+    }
+    return result
+  }
+
+  getAllReadingProgress(): Record<number, ReadingProgress> {
+    const map: Record<number, ReadingProgress> = {}
+    for (const p of this.db.data.reading_progress) {
+      map[p.book_id] = p
+    }
+    return map
   }
 
   // Reading Progress
@@ -215,6 +285,17 @@ export class DatabaseService {
   deleteBookmark(id: number): void {
     this.db.data.bookmarks = this.db.data.bookmarks.filter((b) => b.id !== id)
     this.db.write()
+  }
+
+  updateBookmarkTitle(id: number, title: string): void {
+    console.log('Database updateBookmarkTitle called:', { id, title })
+    const bookmark = this.db.data.bookmarks.find((b) => b.id === id)
+    console.log('Found bookmark:', bookmark)
+    if (bookmark) {
+      bookmark.title = title
+      this.db.write()
+      console.log('Bookmark updated and written to DB')
+    }
   }
 
   // Highlights

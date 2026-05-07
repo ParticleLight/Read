@@ -8,7 +8,7 @@ export function BookShelfPanel() {
   } = useLibraryStore()
 
   const [newName, setNewName] = useState('')
-  const [showInput, setShowInput] = useState(false)
+  const [showDialog, setShowDialog] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editName, setEditName] = useState('')
   const [contextMenu, setContextMenu] = useState<{ id: number; x: number; y: number } | null>(null)
@@ -17,7 +17,7 @@ export function BookShelfPanel() {
     if (newName.trim()) {
       createBookshelf(newName.trim())
       setNewName('')
-      setShowInput(false)
+      setShowDialog(false)
     }
   }
 
@@ -92,30 +92,49 @@ export function BookShelfPanel() {
 
       {/* Add new shelf */}
       <div className="px-2 py-2 border-t border-[var(--reader-border)]">
-        {showInput ? (
-          <div className="flex gap-1">
+        <button
+          onClick={() => setShowDialog(true)}
+          className="w-full text-left px-3 py-2 rounded-lg text-sm text-[var(--reader-text)] opacity-50 hover:opacity-80 hover:bg-[var(--reader-sidebar)] transition-colors flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          新建书柜
+        </button>
+      </div>
+
+      {/* Create dialog */}
+      {showDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setShowDialog(false); setNewName('') }} />
+          <div className="relative bg-[var(--reader-sidebar)] rounded-xl shadow-2xl p-6 w-80 animate-scale-in">
+            <h3 className="text-lg font-semibold text-[var(--reader-text)] mb-4">新建书柜</h3>
             <input
               autoFocus
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setShowInput(false); setNewName('') } }}
-              placeholder="书柜名称..."
-              className="flex-1 px-2 py-1 text-sm bg-[var(--reader-bg)] border border-[var(--reader-border)] rounded text-[var(--reader-text)] placeholder-gray-500 focus:outline-none"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setShowDialog(false); setNewName('') } }}
+              placeholder="请输入书柜名称..."
+              className="w-full px-3 py-2 bg-[var(--reader-bg)] border border-[var(--reader-border)] rounded-lg text-[var(--reader-text)] placeholder-gray-500 focus:outline-none focus:border-indigo-500"
             />
-            <button onClick={handleCreate} className="px-2 py-1 text-xs bg-[var(--reader-accent)] text-white rounded">确定</button>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => { setShowDialog(false); setNewName('') }}
+                className="px-4 py-2 text-sm text-[var(--reader-text)] opacity-70 hover:opacity-100 rounded-lg hover:bg-[var(--reader-border)] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleCreate}
+                disabled={!newName.trim()}
+                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                确定
+              </button>
+            </div>
           </div>
-        ) : (
-          <button
-            onClick={() => setShowInput(true)}
-            className="w-full text-left px-3 py-2 rounded-lg text-sm text-[var(--reader-text)] opacity-50 hover:opacity-80 hover:bg-[var(--reader-sidebar)] transition-colors flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            新建书柜
-          </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Context menu */}
       {contextMenu && (

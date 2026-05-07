@@ -36,13 +36,23 @@ interface ReaderViewProps {
   onClose: () => void
 }
 
+function formatReadingTime(seconds: number): string {
+  if (seconds < 60) return `${seconds}秒`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}分钟`
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  return remainingMinutes > 0 ? `${hours}小时${remainingMinutes}分钟` : `${hours}小时`
+}
+
 export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const [book, setBook] = useState<any>(null)
   const [bookContent, setBookContent] = useState<Uint8Array | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showArrows, setShowArrows] = useState(false)
   const arrowTimerRef = useRef<number | null>(null)
-  const { showSidebar, showControls, controlsLocked, setShowControls, setShowSidebar, loadProgress, loadBookmarks, loadHighlights, loadNotes, turnPage, progress, saveProgress, setBookId } = useReaderStore()
+  const sessionActiveRef = useRef(false)
+  const { showSidebar, showControls, controlsLocked, setShowControls, setShowSidebar, loadProgress, loadBookmarks, loadHighlights, loadNotes, turnPage, progress, saveProgress, setBookId, startReadingSession, endReadingSession, updateReadingTime, currentReadingTime } = useReaderStore()
   const { loadBookSettings, clearBookSettings } = useSettingsStore()
   const { shouldRender: renderSidebar, isClosing: sidebarClosing } = useAnimatedMount(showSidebar, 200)
   const { shouldRender: renderSettings, isClosing: settingsClosing } = useAnimatedMount(showSettings, 200)
@@ -68,9 +78,48 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
     return () => { setBookId(null) }
   }, [bookId])
 
+  // Start reading session when both bookId and content are ready
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
+    if (!bookContent || !book) return
+    if (sessionActiveRef.current) return
+
+    const startSession = async () => {
+      try {
+        const state = useReaderStore.getState()
+        if (state.bookId === null) return
+        await startReadingSession()
+        sessionActiveRef.current = true
+      } catch (e) {
+        console.error('Failed to start reading session:', e)
+      }
+    }
+    startSession()
+  }, [bookContent, book])
+
+  // End session only on actual unmount or bookId change
+  useEffect(() => {
+    return () => {
+      if (sessionActiveRef.current) {
+        sessionActiveRef.current = false
+        endReadingSession()
+      }
+    }
+  }, [bookId])
+
+  // Update reading time display every second
+  useEffect(() => {
+    if (!bookContent) return
+    const interval = setInterval(() => {
+      updateReadingTime()
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [bookContent])
+
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        await endReadingSession()
         saveProgress()
         clearBookSettings()
         onClose()
@@ -143,7 +192,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       <div className="flex-1 relative overflow-hidden">
         {/* Back button */}
         <button
-          onClick={() => { saveProgress(); clearBookSettings(); onClose() }}
+          onClick={async () => { await endReadingSession(); saveProgress(); clearBookSettings(); onClose() }}
           className="absolute top-4 left-4 z-30 p-2 rounded-lg bg-black/20 hover:bg-black/40 text-white/70 hover:text-white transition-all backdrop-blur-sm"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -182,8 +231,15 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
         </div>
 
         {/* Page indicator */}
-        <div className="absolute bottom-3 right-3 z-10 bg-black/40 backdrop-blur-sm text-white/70 text-xs px-3 py-1.5 rounded-full">
-          {progress.page != null ? `第 ${progress.page} 页` : `${Math.round(progress.progress || 0)}%`}
+        <div className="absolute bottom-3 right-3 z-10 bg-black/40 backdrop-blur-sm text-white/70 text-xs px-3 py-1.5 rounded-full flex items-center gap-3">
+          <span>{progress.page != null ? `第 ${progress.page} 页` : `${Math.round(progress.progress || 0)}%`}</span>
+          <span className="opacity-70">|</span>
+          <span title="本次阅读时长">
+            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {formatReadingTime(currentReadingTime)}
+          </span>
         </div>
       </div>
 

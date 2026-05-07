@@ -5,6 +5,7 @@ export interface Bookmark {
   book_id: number
   cfi?: string
   page?: number
+  progress?: number
   title?: string
   note?: string
   created_at: string
@@ -50,14 +51,23 @@ export interface ReaderState {
   showControls: boolean
   tableOfContents: any[]
 
+  // Reading time tracking
+  readingSessionId: number | null
+  readingStartTime: number | null
+  currentReadingTime: number
+
   setBookId: (id: number | null) => void
   setProgress: (progress: ReadingProgress) => void
   saveProgress: () => Promise<void>
   loadProgress: (bookId: number) => Promise<void>
+  startReadingSession: () => Promise<void>
+  endReadingSession: () => Promise<void>
+  updateReadingTime: () => void
 
   loadBookmarks: (bookId: number) => Promise<void>
   addBookmark: (bookmark: Omit<Bookmark, 'id' | 'created_at'>) => Promise<void>
   removeBookmark: (id: number) => Promise<void>
+  updateBookmark: (id: number, title: string) => Promise<void>
 
   loadHighlights: (bookId: number) => Promise<void>
   addHighlight: (highlight: Omit<Highlight, 'id' | 'created_at'>) => Promise<void>
@@ -104,6 +114,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   turnPageDelta: null,
   seekTarget: null,
   tableOfContents: [],
+
+  // Reading time tracking
+  readingSessionId: null,
+  readingStartTime: null,
+  currentReadingTime: 0,
 
   setBookId: (bookId) => set({ bookId }),
 
@@ -156,6 +171,22 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
       set({ bookmarks: get().bookmarks.filter((b) => b.id !== id) })
     } catch (e) {
       console.error('Failed to remove bookmark:', e)
+    }
+  },
+
+  updateBookmark: async (id: number, title: string) => {
+    try {
+      console.log('updateBookmark called:', { id, title })
+      await window.electronAPI.updateBookmarkTitle(id, title)
+      console.log('updateBookmark IPC completed')
+      set({
+        bookmarks: get().bookmarks.map((b) =>
+          b.id === id ? { ...b, title } : b
+        ),
+      })
+      console.log('updateBookmark state updated')
+    } catch (e) {
+      console.error('Failed to update bookmark:', e)
     }
   },
 
@@ -224,6 +255,49 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     } catch (e) {
       console.error('Failed to remove note:', e)
     }
+  },
+
+  startReadingSession: async () => {
+    const { bookId } = get()
+    if (bookId === null) return
+    try {
+      const sessionId = await window.electronAPI.startReadingSession(bookId)
+      const now = Date.now()
+      set({
+        readingSessionId: sessionId,
+        readingStartTime: now,
+        currentReadingTime: 0,
+      })
+    } catch (e) {
+      console.error('Failed to start reading session:', e)
+    }
+  },
+
+  endReadingSession: async () => {
+    const { readingSessionId, readingStartTime } = get()
+    if (readingSessionId === null) return
+    try {
+      // Update final duration before ending
+      if (readingStartTime) {
+        const duration = Math.floor((Date.now() - readingStartTime) / 1000)
+        await window.electronAPI.updateReadingSessionDuration(readingSessionId, duration)
+      }
+      await window.electronAPI.endReadingSession(readingSessionId)
+      set({
+        readingSessionId: null,
+        readingStartTime: null,
+        currentReadingTime: 0,
+      })
+    } catch (e) {
+      console.error('Failed to end reading session:', e)
+    }
+  },
+
+  updateReadingTime: () => {
+    const { readingStartTime, readingSessionId } = get()
+    if (readingStartTime === null || readingSessionId === null) return
+    const elapsed = Math.floor((Date.now() - readingStartTime) / 1000)
+    set({ currentReadingTime: elapsed })
   },
 
   setControlsLocked: (controlsLocked) => set({ controlsLocked }),

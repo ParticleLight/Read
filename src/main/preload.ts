@@ -20,6 +20,7 @@ export interface ElectronAPI {
   getBookmarks: (bookId: number) => Promise<any[]>
   addBookmark: (bookmark: any) => Promise<void>
   deleteBookmark: (id: number) => Promise<void>
+  updateBookmarkTitle: (id: number, title: string) => Promise<void>
 
   // Highlights
   getHighlights: (bookId: number) => Promise<any[]>
@@ -48,6 +49,14 @@ export interface ElectronAPI {
   addBookToShelf: (shelfId: number, bookId: number) => Promise<void>
   removeBookFromShelf: (shelfId: number, bookId: number) => Promise<void>
   getShelvesForBook: (bookId: number) => Promise<number[]>
+
+  // Reading Sessions
+  startReadingSession: (bookId: number) => Promise<number>
+  endReadingSession: (sessionId: number) => Promise<void>
+  updateReadingSessionDuration: (sessionId: number, durationSeconds: number) => Promise<void>
+  getReadingTime: (bookId: number) => Promise<number>
+  getAllReadingTime: () => Promise<Record<number, number>>
+  getAllReadingProgress: () => Promise<Record<number, any>>
 }
 
 const api: ElectronAPI = {
@@ -67,6 +76,7 @@ const api: ElectronAPI = {
   getBookmarks: (bookId) => ipcRenderer.invoke('db:getBookmarks', bookId),
   addBookmark: (bookmark) => ipcRenderer.invoke('db:addBookmark', bookmark),
   deleteBookmark: (id) => ipcRenderer.invoke('db:deleteBookmark', id),
+  updateBookmarkTitle: (id, title) => ipcRenderer.invoke('db:updateBookmarkTitle', id, title),
 
   getHighlights: (bookId) => ipcRenderer.invoke('db:getHighlights', bookId),
   addHighlight: (highlight) => ipcRenderer.invoke('db:addHighlight', highlight),
@@ -91,6 +101,16 @@ const api: ElectronAPI = {
   addBookToShelf: (shelfId, bookId) => ipcRenderer.invoke('db:addBookToShelf', shelfId, bookId),
   removeBookFromShelf: (shelfId, bookId) => ipcRenderer.invoke('db:removeBookFromShelf', shelfId, bookId),
   getShelvesForBook: (bookId) => ipcRenderer.invoke('db:getShelvesForBook', bookId),
+
+  startReadingSession: (bookId) => ipcRenderer.invoke('db:startReadingSession', bookId),
+  endReadingSession: (sessionId) => ipcRenderer.invoke('db:endReadingSession', sessionId),
+  updateReadingSessionDuration: (sessionId, durationSeconds) => ipcRenderer.invoke('db:updateReadingSessionDuration', sessionId, durationSeconds),
+  getReadingTime: (bookId) => ipcRenderer.invoke('db:getReadingTime', bookId),
+  getAllReadingTime: () => ipcRenderer.invoke('db:getAllReadingTime'),
+  getAllReadingProgress: () => ipcRenderer.invoke('db:getAllReadingProgress'),
 }
+
+console.log('Preload script loaded, api keys:', Object.keys(api).join(', '))
+console.log('updateBookmarkTitle exists:', typeof api.updateBookmarkTitle)
 
 contextBridge.exposeInMainWorld('electronAPI', api)

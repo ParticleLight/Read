@@ -35,6 +35,10 @@ export interface LibraryState {
   activeShelfId: number | null
   shelfBookIds: number[]
 
+  // Reading time
+  readingTimeMap: Record<number, number>
+  readingProgressMap: Record<number, { progress: number; page?: number; updated_at: string }>
+
   loadBooks: () => Promise<void>
   importBook: (filePath: string) => Promise<Book | null>
   importBooks: (filePaths: string[]) => Promise<void>
@@ -51,6 +55,10 @@ export interface LibraryState {
   setActiveShelf: (id: number | null) => Promise<void>
   addBookToShelf: (shelfId: number, bookId: number) => Promise<void>
   removeBookFromShelf: (shelfId: number, bookId: number) => Promise<void>
+
+  // Reading time actions
+  loadReadingTime: () => Promise<void>
+  loadReadingProgress: () => Promise<void>
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -63,6 +71,9 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   bookshelves: [],
   activeShelfId: null,
   shelfBookIds: [],
+
+  readingTimeMap: {},
+  readingProgressMap: {},
 
   loadBooks: async () => {
     set({ isLoading: true })
@@ -183,6 +194,24 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       }
     } catch (e) {
       console.error('Failed to remove book from shelf:', e)
+    }
+  },
+
+  loadReadingTime: async () => {
+    try {
+      const readingTimeMap = await window.electronAPI.getAllReadingTime()
+      set({ readingTimeMap })
+    } catch (e) {
+      console.error('Failed to load reading time:', e)
+    }
+  },
+
+  loadReadingProgress: async () => {
+    try {
+      const readingProgressMap = await window.electronAPI.getAllReadingProgress()
+      set({ readingProgressMap })
+    } catch (e) {
+      console.error('Failed to load reading progress:', e)
     }
   },
 }))

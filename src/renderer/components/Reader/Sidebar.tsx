@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 
 interface SidebarProps {
@@ -10,10 +10,24 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
   const {
     sidebarTab, setSidebarTab, tableOfContents,
     bookmarks, highlights, notes,
-    removeBookmark, removeHighlight, removeNote,
+    removeBookmark, updateBookmark, removeHighlight, removeNote,
     addNote, progress, navigateTo, setShowSidebar,
   } = useReaderStore()
   const [newNote, setNewNote] = useState('')
+  const [editingBookmarkId, setEditingBookmarkId] = useState<number | null>(null)
+  const [editingBookmarkTitle, setEditingBookmarkTitle] = useState('')
+
+  const handleSaveBookmark = async () => {
+    const id = editingBookmarkId
+    const title = editingBookmarkTitle.trim()
+    setEditingBookmarkId(null)
+    if (id !== null && title) {
+      const bm = bookmarks.find((b) => b.id === id)
+      if (bm && title !== bm.title) {
+        await updateBookmark(id, title)
+      }
+    }
+  }
 
   const tabs = [
     { id: 'toc' as const, label: '目录', icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
@@ -87,18 +101,64 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                 <div
                   key={bm.id}
                   className="group flex items-start gap-2 p-2 rounded-lg hover:bg-gray-700/50 cursor-pointer"
-                  onClick={() => navigateTo({ page: bm.page, cfi: bm.cfi })}
+                  onClick={() => { if (editingBookmarkId !== bm.id) navigateTo({ page: bm.page, cfi: bm.cfi }) }}
                 >
                   <svg className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                   </svg>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-300 truncate">{bm.title || '书签'}</p>
-                    <p className="text-xs text-gray-500">{new Date(bm.created_at).toLocaleString('zh-CN')}</p>
+                    {editingBookmarkId === bm.id ? (
+                      <input
+                        autoFocus
+                        value={editingBookmarkTitle}
+                        onChange={(e) => setEditingBookmarkTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveBookmark()
+                          if (e.key === 'Escape') setEditingBookmarkId(null)
+                        }}
+                        onBlur={handleSaveBookmark}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-full px-1 py-0.5 text-sm bg-gray-800 border border-gray-600 rounded text-gray-200 focus:outline-none focus:border-indigo-500"
+                      />
+                    ) : (
+                      <>
+                        <p
+                          className="text-sm text-gray-300 truncate cursor-pointer hover:text-white"
+                          onDoubleClick={(e) => {
+                            e.stopPropagation()
+                            setEditingBookmarkId(bm.id)
+                            setEditingBookmarkTitle(bm.title || '')
+                          }}
+                          title="双击重命名"
+                        >
+                          {bm.title || '书签'}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-gray-500">{new Date(bm.created_at).toLocaleString('zh-CN')}</p>
+                          {bm.progress != null && (
+                            <p className="text-xs text-gray-500">{bm.progress.toFixed(1)}%</p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setEditingBookmarkId(bm.id)
+                      setEditingBookmarkTitle(bm.title || '')
+                    }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-blue-400"
+                    title="重命名"
+                  >
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); removeBookmark(bm.id) }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400"
+                    title="删除"
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

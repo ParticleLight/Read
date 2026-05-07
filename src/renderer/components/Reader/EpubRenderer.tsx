@@ -25,7 +25,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
   const [isReady, setIsReady] = useState(false)
   const [highlightPopup, setHighlightPopup] = useState<{ x: number; y: number; cfiRange: string; text: string } | null>(null)
 
-  const { progress, setProgress, saveProgress, setTableOfContents, addBookmark, addHighlight, highlights, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
+  const { progress, setProgress, saveProgress, setTableOfContents, addBookmark, addHighlight, highlights, bookmarks, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
   const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
   const spineLengthRef = useRef(0)
 
@@ -263,7 +263,8 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       if (e.key === 'b') {
         const loc = renditionRef.current?.currentLocation() as any
         if (loc?.start?.cfi) {
-          addBookmark({ book_id: bookId, cfi: loc.start.cfi, title: `书签 - ${new Date().toLocaleString('zh-CN')}` })
+          const nextNum = bookmarks.length + 1
+          addBookmark({ book_id: bookId, cfi: loc.start.cfi, progress: Math.round(progress.progress * 10) / 10, title: `书签${nextNum}` })
         }
       }
     }
