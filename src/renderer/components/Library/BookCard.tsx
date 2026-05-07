@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
-import { Book } from '../../stores/libraryStore'
+import { Book, useLibraryStore } from '../../stores/libraryStore'
 import { safeText } from '../../utils/safeText'
 
 interface BookCardProps {
   book: Book
   onOpen: (bookId: number) => void
   onDelete: (bookId: number) => void
+  onRemoveFromShelf?: (bookId: number) => void
+  activeShelfId?: number | null
 }
 
 const formatColors: Record<string, string> = {
@@ -73,12 +75,15 @@ async function extractTextPreview(filePath: string): Promise<string | null> {
   }
 }
 
-export function BookCard({ book, onOpen, onDelete }: BookCardProps) {
+export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShelfId }: BookCardProps) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [textPreview, setTextPreview] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
+  const [showShelfMenu, setShowShelfMenu] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const objectUrlRef = useRef<string | null>(null)
+
+  const { bookshelves, addBookToShelf } = useLibraryStore()
 
   useEffect(() => {
     let mounted = true
@@ -177,7 +182,38 @@ export function BookCard({ book, onOpen, onDelete }: BookCardProps) {
           >
             打开
           </button>
-          {!confirmDelete ? (
+          {bookshelves.length > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowShelfMenu(!showShelfMenu) }}
+              className="w-full text-left px-4 py-2 text-sm text-[var(--reader-text)] hover:bg-[var(--reader-border)] flex items-center justify-between"
+            >
+              添加到书柜
+              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+          {showShelfMenu && (
+            <div className="pl-2">
+              {bookshelves.map((shelf) => (
+                <button
+                  key={shelf.id}
+                  onClick={(e) => { e.stopPropagation(); addBookToShelf(shelf.id, book.id); setShowMenu(false); setShowShelfMenu(false) }}
+                  className="w-full text-left px-4 py-1.5 text-sm text-[var(--reader-text)] opacity-70 hover:opacity-100 hover:bg-[var(--reader-border)]"
+                >
+                  {shelf.name}
+                </button>
+              ))}
+            </div>
+          )}
+          {activeShelfId != null && onRemoveFromShelf ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemoveFromShelf(book.id); setShowMenu(false) }}
+              className="w-full text-left px-4 py-2 text-sm text-orange-400 hover:bg-[var(--reader-border)]"
+            >
+              从书柜移除
+            </button>
+          ) : !confirmDelete ? (
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
               className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[var(--reader-border)]"

@@ -28,10 +28,16 @@ function formatFileSize(bytes: number): string {
 
 export function BookList({ books, onOpenBook }: BookListProps) {
   const deleteBook = useLibraryStore((s) => s.deleteBook)
+  const activeShelfId = useLibraryStore((s) => s.activeShelfId)
+  const removeBookFromShelf = useLibraryStore((s) => s.removeBookFromShelf)
   const [confirmId, setConfirmId] = useState<number | null>(null)
 
   const handleDelete = (e: React.MouseEvent, bookId: number) => {
     e.stopPropagation()
+    if (activeShelfId != null) {
+      removeBookFromShelf(activeShelfId, bookId)
+      return
+    }
     if (confirmId === bookId) {
       deleteBook(bookId)
       setConfirmId(null)
@@ -79,14 +85,16 @@ export function BookList({ books, onOpenBook }: BookListProps) {
             <button
               onClick={(e) => handleDelete(e, book.id)}
               className={`p-1.5 rounded-lg transition-colors ${
-                confirmId === book.id
-                  ? 'bg-red-600 text-white'
-                  : 'opacity-0 group-hover:opacity-100 text-[var(--reader-text)] opacity-60 hover:text-red-400 hover:bg-[var(--reader-sidebar)]'
+                activeShelfId != null
+                  ? 'opacity-0 group-hover:opacity-100 text-orange-400 hover:text-orange-300 hover:bg-[var(--reader-sidebar)]'
+                  : confirmId === book.id
+                    ? 'bg-red-600 text-white'
+                    : 'opacity-0 group-hover:opacity-100 text-[var(--reader-text)] opacity-60 hover:text-red-400 hover:bg-[var(--reader-sidebar)]'
               }`}
-              title={confirmId === book.id ? '再次点击确认删除' : '删除'}
+              title={activeShelfId != null ? '从书柜移除' : confirmId === book.id ? '再次点击确认删除' : '删除'}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={activeShelfId != null ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" : "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"} />
               </svg>
             </button>
           </div>

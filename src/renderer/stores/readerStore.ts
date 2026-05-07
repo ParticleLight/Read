@@ -79,8 +79,13 @@ export interface ReaderState {
   turnPage: (delta: number) => void
   clearTurnPage: () => void
 
+  seekTarget: number | null
+  seekTo: (percent: number) => void
+  clearSeekTarget: () => void
+
   setSidebarTab: (tab: 'toc' | 'bookmarks' | 'highlights' | 'notes') => void
   toggleSidebar: () => void
+  setShowSidebar: (show: boolean) => void
   setShowControls: (show: boolean) => void
   setTableOfContents: (toc: any[]) => void
 }
@@ -97,6 +102,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   controlsLocked: false,
   navigateTarget: null,
   turnPageDelta: null,
+  seekTarget: null,
   tableOfContents: [],
 
   setBookId: (bookId) => set({ bookId }),
@@ -225,8 +231,11 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   clearNavigateTarget: () => set({ navigateTarget: null }),
   turnPage: (delta) => set({ turnPageDelta: delta }),
   clearTurnPage: () => set({ turnPageDelta: null }),
+  seekTo: (percent) => set({ seekTarget: percent }),
+  clearSeekTarget: () => set({ seekTarget: null }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab, showSidebar: true }),
   toggleSidebar: () => set({ showSidebar: !get().showSidebar }),
+  setShowSidebar: (show) => set({ showSidebar: show }),
   setShowControls: (showControls) => set({ showControls }),
   setTableOfContents: (tableOfContents) => set({ tableOfContents }),
 }))

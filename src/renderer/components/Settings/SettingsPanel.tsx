@@ -3,9 +3,10 @@ import { useSettingsStore } from '../../stores/settingsStore'
 interface SettingsPanelProps {
   onClose: () => void
   format?: string
+  isClosing?: boolean
 }
 
-export function SettingsPanel({ onClose, format }: SettingsPanelProps) {
+export function SettingsPanel({ onClose, format, isClosing }: SettingsPanelProps) {
   const {
     fontSize, setFontSize,
     fontFamily, setFontFamily,
@@ -23,7 +24,11 @@ export function SettingsPanel({ onClose, format }: SettingsPanelProps) {
   ]
 
   return (
-    <div className="absolute right-0 top-0 bottom-0 w-80 bg-[var(--reader-sidebar)] border-l border-[var(--reader-border)] shadow-2xl z-40 overflow-y-auto">
+    <div className={`absolute inset-0 z-40 flex justify-end ${isClosing ? 'animate-fade-out' : ''}`}>
+      {/* Backdrop */}
+      <div className={`absolute inset-0 bg-black/40 ${isClosing ? 'opacity-0' : ''}`} style={{ transition: 'opacity 0.2s' }} onClick={onClose} />
+      {/* Panel */}
+      <div className={`relative w-80 h-full border-l border-[var(--reader-border)] shadow-2xl overflow-y-auto ${isClosing ? 'animate-slide-out-right' : 'animate-slide-in-right'}`} style={{ backgroundColor: 'var(--reader-sidebar)', opacity: 0.9 }}>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -176,6 +181,7 @@ export function SettingsPanel({ onClose, format }: SettingsPanelProps) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   )
 }

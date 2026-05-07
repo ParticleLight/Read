@@ -224,15 +224,49 @@ export class LibraryService {
         const manifest = opf?.package?.manifest?.item
         if (!manifest) return null
 
-        const coverItem = Array.isArray(manifest)
-          ? manifest.find((item: any) => item['@_id'] === 'cover-image' || item['@_properties'] === 'cover-image')
-          : manifest
+        const items = Array.isArray(manifest) ? manifest : [manifest]
+        const basePath = rootFilePath.includes('/')
+          ? rootFilePath.substring(0, rootFilePath.lastIndexOf('/') + 1)
+          : ''
+
+        // Method 1: EPUB 3 properties="cover-image"
+        let coverItem = items.find((item: any) => item['@_properties'] === 'cover-image')
+
+        // Method 2: EPUB 2 <meta name="cover" content="item-id"/>
+        if (!coverItem) {
+          const metadataNode = opf?.package?.metadata
+          const metas = metadataNode?.['meta']
+          if (metas) {
+            const metaArr = Array.isArray(metas) ? metas : [metas]
+            const coverMeta = metaArr.find((m: any) => m['@_name'] === 'cover')
+            if (coverMeta?.['@_content']) {
+              coverItem = items.find((item: any) => item['@_id'] === coverMeta['@_content'])
+            }
+          }
+        }
+
+        // Method 3: id="cover-image" or id="cover"
+        if (!coverItem) {
+          coverItem = items.find((item: any) =>
+            item['@_id'] === 'cover-image' || item['@_id'] === 'cover' ||
+            (item['@_href'] && /cover/i.test(item['@_href']) && item['@_media-type']?.startsWith('image/'))
+          )
+        }
+
+        // Method 4: any image in manifest with "cover" in href
+        if (!coverItem) {
+          coverItem = items.find((item: any) =>
+            item['@_media-type']?.startsWith('image/') && /cover/i.test(item['@_href'] || '')
+          )
+        }
+
+        // Method 5: first image in manifest as last resort
+        if (!coverItem) {
+          coverItem = items.find((item: any) => item['@_media-type']?.startsWith('image/'))
+        }
 
         if (coverItem?.['@_href']) {
-          const coverPath = rootFilePath.includes('/')
-            ? rootFilePath.substring(0, rootFilePath.lastIndexOf('/') + 1) + coverItem['@_href']
-            : coverItem['@_href']
-
+          const coverPath = basePath + coverItem['@_href']
           const coverData = await zip.file(coverPath)?.async('base64')
           if (coverData) {
             const mediaType = coverItem['@_media-type'] || 'image/jpeg'

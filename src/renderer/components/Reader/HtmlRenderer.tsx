@@ -16,12 +16,15 @@ export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
   const [htmlContent, setHtmlContent] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { progress, setProgress, saveProgress, setTableOfContents, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
+  const { progress, setProgress, saveProgress, setTableOfContents, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
   const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
 
   useEffect(() => {
     if (!navigateTarget || !containerRef.current) return
-    if (navigateTarget.page) {
+    if (navigateTarget.cfi) {
+      const el = containerRef.current.querySelector(`#${navigateTarget.cfi}`)
+      if (el) el.scrollIntoView({ behavior: 'smooth' })
+    } else if (navigateTarget.page) {
       const container = containerRef.current
       const scrollTop = (navigateTarget.page / 100) * container.scrollHeight
       container.scrollTop = scrollTop
@@ -32,9 +35,18 @@ export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
   useEffect(() => {
     if (turnPageDelta === null || !containerRef.current) return
     const container = containerRef.current
-    container.scrollBy({ top: turnPageDelta > 0 ? container.clientHeight * 0.9 : -container.clientHeight * 0.9, behavior: 'smooth' })
+    container.scrollBy({ top: turnPageDelta > 0 ? container.clientHeight : -container.clientHeight, behavior: 'smooth' })
     clearTurnPage()
   }, [turnPageDelta])
+
+  // Handle seek from progress bar
+  useEffect(() => {
+    if (seekTarget === null || !containerRef.current) return
+    const container = containerRef.current
+    const scrollTop = (seekTarget / 100) * (container.scrollHeight - container.clientHeight)
+    container.scrollTop = scrollTop
+    clearSeekTarget()
+  }, [seekTarget])
 
   useEffect(() => {
     const text = new TextDecoder('utf-8').decode(content)

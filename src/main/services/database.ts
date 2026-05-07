@@ -62,13 +62,29 @@ interface Note {
   updated_at: string
 }
 
+interface Bookshelf {
+  id: number
+  name: string
+  created_at: string
+}
+
+interface BookshelfBook {
+  id: number
+  shelf_id: number
+  book_id: number
+  added_at: string
+}
+
 interface DBData {
   books: Book[]
   reading_progress: ReadingProgress[]
   bookmarks: Bookmark[]
   highlights: Highlight[]
   notes: Note[]
+  bookshelves: Bookshelf[]
+  bookshelf_books: BookshelfBook[]
   settings: Record<string, any>
+  book_settings: Record<number, Record<string, any>>
   nextId: number
 }
 
@@ -78,7 +94,10 @@ const defaultData: DBData = {
   bookmarks: [],
   highlights: [],
   notes: [],
+  bookshelves: [],
+  bookshelf_books: [],
   settings: {},
+  book_settings: {},
   nextId: 1,
 }
 
@@ -92,7 +111,13 @@ export class DatabaseService {
 
     const adapter = new JSONFile<DBData>(dbPath)
     this.db = new Low<DBData>(adapter, defaultData)
-    this.db.read()
+    this.db.read().then(() => {
+      // Initialize missing fields for older database files
+      if (!this.db.data.bookshelves) this.db.data.bookshelves = []
+      if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
+      if (!this.db.data.book_settings) this.db.data.book_settings = {}
+      this.db.write()
+    })
   }
 
   private getNextId(): number {
@@ -248,6 +273,75 @@ export class DatabaseService {
     this.db.write()
   }
 
+  // Bookshelves
+  getBookshelves(): Bookshelf[] {
+    if (!this.db.data.bookshelves) this.db.data.bookshelves = []
+    return this.db.data.bookshelves.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  }
+
+  addBookshelf(name: string): Bookshelf {
+    if (!this.db.data.bookshelves) this.db.data.bookshelves = []
+    const newShelf: Bookshelf = {
+      id: this.getNextId(),
+      name,
+      created_at: new Date().toISOString(),
+    }
+    this.db.data.bookshelves.push(newShelf)
+    this.db.write()
+    return newShelf
+  }
+
+  deleteBookshelf(id: number): void {
+    if (this.db.data.bookshelves) this.db.data.bookshelves = this.db.data.bookshelves.filter((s) => s.id !== id)
+    if (this.db.data.bookshelf_books) this.db.data.bookshelf_books = this.db.data.bookshelf_books.filter((sb) => sb.shelf_id !== id)
+    this.db.write()
+  }
+
+  renameBookshelf(id: number, name: string): void {
+    if (!this.db.data.bookshelves) this.db.data.bookshelves = []
+    const shelf = this.db.data.bookshelves.find((s) => s.id === id)
+    if (shelf) {
+      shelf.name = name
+      this.db.write()
+    }
+  }
+
+  getBooksInShelf(shelfId: number): number[] {
+    if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
+    return this.db.data.bookshelf_books
+      .filter((sb) => sb.shelf_id === shelfId)
+      .map((sb) => sb.book_id)
+  }
+
+  addBookToShelf(shelfId: number, bookId: number): void {
+    if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
+    const exists = this.db.data.bookshelf_books.some((sb) => sb.shelf_id === shelfId && sb.book_id === bookId)
+    if (!exists) {
+      this.db.data.bookshelf_books.push({
+        id: this.getNextId(),
+        shelf_id: shelfId,
+        book_id: bookId,
+        added_at: new Date().toISOString(),
+      })
+      this.db.write()
+    }
+  }
+
+  removeBookFromShelf(shelfId: number, bookId: number): void {
+    if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
+    this.db.data.bookshelf_books = this.db.data.bookshelf_books.filter(
+      (sb) => !(sb.shelf_id === shelfId && sb.book_id === bookId)
+    )
+    this.db.write()
+  }
+
+  getShelvesForBook(bookId: number): number[] {
+    if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
+    return this.db.data.bookshelf_books
+      .filter((sb) => sb.book_id === bookId)
+      .map((sb) => sb.shelf_id)
+  }
+
   // Settings
   getSettings(): Record<string, any> {
     return this.db.data.settings
@@ -255,6 +349,24 @@ export class DatabaseService {
 
   updateSettings(settings: Record<string, any>): void {
     this.db.data.settings = { ...this.db.data.settings, ...settings }
+    this.db.write()
+  }
+
+  // Per-book settings
+  getBookSettings(bookId: number): Record<string, any> | undefined {
+    if (!this.db.data.book_settings) this.db.data.book_settings = {}
+    return this.db.data.book_settings[bookId]
+  }
+
+  updateBookSettings(bookId: number, settings: Record<string, any>): void {
+    if (!this.db.data.book_settings) this.db.data.book_settings = {}
+    this.db.data.book_settings[bookId] = { ...this.db.data.book_settings[bookId], ...settings }
+    this.db.write()
+  }
+
+  deleteBookSettings(bookId: number): void {
+    if (!this.db.data.book_settings) this.db.data.book_settings = {}
+    delete this.db.data.book_settings[bookId]
     this.db.write()
   }
 

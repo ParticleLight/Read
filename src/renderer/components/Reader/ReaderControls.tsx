@@ -8,7 +8,7 @@ interface ReaderControlsProps {
 }
 
 export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) {
-  const { progress, bookmarks, addBookmark, removeBookmark, addNote, toggleSidebar, setSidebarTab, setControlsLocked } = useReaderStore()
+  const { progress, bookmarks, addBookmark, removeBookmark, addNote, toggleSidebar, setSidebarTab, setControlsLocked, seekTo } = useReaderStore()
   const { theme, setTheme } = useSettingsStore()
   const [showNoteInput, setShowNoteInput] = useState(false)
   const [noteText, setNoteText] = useState('')
@@ -81,7 +81,7 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
           max="100"
           value={progress.progress || 0}
           onChange={(e) => {
-            // Seek to position - renderer specific
+            seekTo(Number(e.target.value))
           }}
           className="w-full h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer accent-indigo-500"
         />

@@ -19,11 +19,11 @@
 }
 
 .sepia {
-  --reader-bg: #f4ecd8;
-  --reader-text: #5b4636;
-  --reader-accent: #8b6914;
-  --reader-sidebar: #efe6d5;
-  --reader-border: #d4c5a9;
+  --reader-bg: #2a2118;
+  --reader-text: #d4c4a8;
+  --reader-accent: #b8860b;
+  --reader-sidebar: #33291f;
+  --reader-border: #4a3d30;
 }
 
 * {
@@ -78,6 +78,51 @@ body {
 .reader-content img {
   max-width: 100%;
   height: auto;
+}
+
+@keyframes slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.2s ease-out;
+}
+
+.animate-slide-out {
+  animation: slide-out 0.2s ease-in forwards;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.2s ease-out;
+}
+
+.animate-slide-out-right {
+  animation: slide-out-right 0.2s ease-in forwards;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.2s ease-in forwards;
 }
 
 @layer components {

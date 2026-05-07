@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Library } from './components/Library/Library'
 import { ReaderView } from './components/Reader/ReaderView'
+import { GlobalSettings } from './components/Settings/GlobalSettings'
 import { useSettingsStore } from './stores/settingsStore'
 import { useLibraryStore } from './stores/libraryStore'
 
+type Page = 'library' | 'settings'
+
 export default function App() {
   const [currentBookId, setCurrentBookId] = useState<number | null>(null)
+  const [page, setPage] = useState<Page>('library')
   const theme = useSettingsStore((s) => s.theme)
   const books = useLibraryStore((s) => s.books)
   const loadBooks = useLibraryStore((s) => s.loadBooks)
@@ -22,16 +26,20 @@ export default function App() {
 
   const openBook = (bookId: number) => {
     setCurrentBookId(bookId)
-    window.electronAPI.updateReadingProgress(bookId, { progress: 0 })
   }
 
   const closeBook = () => {
     setCurrentBookId(null)
+    loadBooks()
   }
 
   if (currentBookId !== null) {
     return <ReaderView bookId={currentBookId} onClose={closeBook} />
   }
 
-  return <Library onOpenBook={openBook} />
+  if (page === 'settings') {
+    return <GlobalSettings onBack={() => setPage('library')} />
+  }
+
+  return <Library onOpenBook={openBook} onOpenSettings={() => setPage('settings')} />
 }

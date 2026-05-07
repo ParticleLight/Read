@@ -13,6 +13,7 @@ interface PdfRendererProps {
 }
 
 export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -20,7 +21,7 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
   const [scale, setScale] = useState(2)
   const [isRendering, setIsRendering] = useState(false)
 
-  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
+  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
   const { theme } = useSettingsStore()
 
   // Handle navigation from sidebar bookmarks/TOC
@@ -38,6 +39,14 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
     setCurrentPage((p) => Math.max(1, Math.min(p + turnPageDelta, totalPages)))
     clearTurnPage()
   }, [turnPageDelta])
+
+  // Handle seek from progress bar
+  useEffect(() => {
+    if (seekTarget === null || totalPages === 0) return
+    const targetPage = Math.max(1, Math.round((seekTarget / 100) * totalPages))
+    setCurrentPage(targetPage)
+    clearSeekTarget()
+  }, [seekTarget])
 
   useEffect(() => {
     const loadPdf = async () => {
@@ -67,23 +76,20 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
       canvas.style.width = `${viewport.width / dpr}px`
       canvas.style.height = `${viewport.height / dpr}px`
 
-      if (theme === 'dark') {
-        context.filter = 'invert(0.85) hue-rotate(180deg)'
-      } else if (theme === 'sepia') {
-        context.filter = 'sepia(0.3) brightness(0.95)'
-      } else {
-        context.filter = 'none'
-      }
-
       await page.render({ canvasContext: context, viewport }).promise
       setIsRendering(false)
+
+      // Scroll to top of page after rendering
+      if (containerRef.current) {
+        containerRef.current.scrollTop = 0
+      }
 
       const progressPercent = (currentPage / totalPages) * 100
       setProgress({ progress: progressPercent, page: currentPage })
       saveProgress()
     }
     renderPage()
-  }, [pdfDoc, currentPage, scale, theme])
+  }, [pdfDoc, currentPage, scale])
 
   const goNext = useCallback(() => {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1)
@@ -127,8 +133,13 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
   }, [])
 
   return (
-    <div className="h-full flex flex-col items-center overflow-auto bg-[var(--reader-bg)]" onClick={handleClick}>
-      <div className="relative py-8">
+    <div ref={containerRef} className="h-full flex flex-col items-center overflow-auto bg-[var(--reader-bg)]" onClick={handleClick}>
+      <div
+        className="relative py-8"
+        style={{
+          filter: theme === 'dark' ? 'invert(1) hue-rotate(180deg) brightness(0.9)' : theme === 'sepia' ? 'invert(1) hue-rotate(180deg) sepia(0.4) brightness(0.85)' : 'none'
+        }}
+      >
         <canvas ref={canvasRef} className="shadow-2xl" />
         {isRendering && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/20">

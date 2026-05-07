@@ -1,18 +1,22 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
-import { useSettingsStore } from '../../stores/settingsStore'
 import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
+import { BookShelfPanel } from './BookShelfPanel'
 import { safeText } from '../../utils/safeText'
 
 interface LibraryProps {
   onOpenBook: (bookId: number) => void
+  onOpenSettings: () => void
 }
 
-export function Library({ onOpenBook }: LibraryProps) {
-  const { books, isLoading, viewMode, searchQuery, sortBy, setViewMode, setSearchQuery, setSortBy, importBooks, loadBooks } = useLibraryStore()
-  const { theme, setTheme } = useSettingsStore()
+export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
+  const { books, isLoading, viewMode, searchQuery, sortBy, activeShelfId, bookshelves, setViewMode, setSearchQuery, setSortBy, importBooks, loadBooks, loadBookshelves } = useLibraryStore()
   const [isDragOver, setIsDragOver] = useState(false)
+
+  useEffect(() => {
+    loadBookshelves()
+  }, [])
 
   const filteredBooks = books.filter((book) => {
     if (!searchQuery) return true
@@ -71,7 +75,9 @@ export function Library({ onOpenBook }: LibraryProps) {
             </svg>
             电子书阅读器
           </h1>
-          <span className="text-sm text-[var(--reader-text)] opacity-60">{books.length} 本书</span>
+          <span className="text-sm text-[var(--reader-text)] opacity-60">
+            {activeShelfId !== null ? bookshelves.find((s) => s.id === activeShelfId)?.name : '全部书籍'} · {books.length} 本书
+          </span>
         </div>
 
         <div className="no-drag flex items-center gap-3">
@@ -129,25 +135,29 @@ export function Library({ onOpenBook }: LibraryProps) {
             导入
           </button>
 
-          {/* Theme */}
-          <div className="flex items-center gap-1 bg-[var(--reader-sidebar)] rounded-lg p-1 border border-[var(--reader-border)]">
-            {(['light', 'dark', 'sepia'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTheme(t)}
-                className={`px-2 py-1 text-xs rounded transition-colors ${
-                  theme === t ? 'bg-[var(--reader-accent)] text-white' : 'text-[var(--reader-text)] opacity-60 hover:opacity-100'
-                }`}
-              >
-                {t === 'light' ? '亮' : t === 'dark' ? '暗' : '护眼'}
-              </button>
-            ))}
-          </div>
+          {/* Settings */}
+          <button
+            onClick={onOpenSettings}
+            className="p-2 text-[var(--reader-text)] opacity-60 hover:opacity-100 rounded-lg hover:bg-[var(--reader-sidebar)] transition-colors"
+            title="全局设置"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
         </div>
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-y-auto p-6 relative">
+      <main className="flex-1 flex overflow-hidden relative">
+        {/* Bookshelf sidebar */}
+        <div className="w-48 flex-shrink-0 border-r border-[var(--reader-border)] bg-[var(--reader-bg)] overflow-y-auto">
+          <BookShelfPanel />
+        </div>
+
+        {/* Book area */}
+        <div className="flex-1 overflow-y-auto p-6">
         {isDragOver && (
           <div className="absolute inset-6 z-50 flex items-center justify-center bg-indigo-600/20 border-2 border-dashed border-indigo-400 rounded-2xl">
             <div className="text-center">
@@ -177,6 +187,7 @@ export function Library({ onOpenBook }: LibraryProps) {
         ) : (
           <BookList books={sortedBooks} onOpenBook={onOpenBook} />
         )}
+        </div>
       </main>
     </div>
   )

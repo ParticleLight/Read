@@ -11,7 +11,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
     sidebarTab, setSidebarTab, tableOfContents,
     bookmarks, highlights, notes,
     removeBookmark, removeHighlight, removeNote,
-    addNote, progress, navigateTo,
+    addNote, progress, navigateTo, setShowSidebar,
   } = useReaderStore()
   const [newNote, setNewNote] = useState('')
 
@@ -44,7 +44,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
             </button>
           ))}
         </div>
-        <button onClick={onClose} className="p-1 text-gray-500 hover:text-gray-300">
+        <button onClick={() => setShowSidebar(false)} className="p-1 text-gray-500 hover:text-gray-300">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -62,7 +62,11 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                 <button
                   key={i}
                   onClick={() => {
-                    // Navigate to TOC item - handled by renderer
+                    if (item.href) {
+                      navigateTo({ cfi: item.href })
+                    } else if (item.id) {
+                      navigateTo({ cfi: item.id })
+                    }
                   }}
                   className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-gray-700/50 text-gray-300 transition-colors"
                   style={{ paddingLeft: `${(item.level || 1) * 12}px` }}

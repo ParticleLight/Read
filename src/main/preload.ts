@@ -35,6 +35,19 @@ export interface ElectronAPI {
   // Settings
   getSettings: () => Promise<any>
   updateSettings: (settings: any) => Promise<void>
+  getBookSettings: (bookId: number) => Promise<any>
+  updateBookSettings: (bookId: number, settings: any) => Promise<void>
+  deleteBookSettings: (bookId: number) => Promise<void>
+
+  // Bookshelves
+  getBookshelves: () => Promise<any[]>
+  addBookshelf: (name: string) => Promise<any>
+  deleteBookshelf: (id: number) => Promise<void>
+  renameBookshelf: (id: number, name: string) => Promise<void>
+  getBooksInShelf: (shelfId: number) => Promise<number[]>
+  addBookToShelf: (shelfId: number, bookId: number) => Promise<void>
+  removeBookFromShelf: (shelfId: number, bookId: number) => Promise<void>
+  getShelvesForBook: (bookId: number) => Promise<number[]>
 }
 
 const api: ElectronAPI = {
@@ -66,6 +79,18 @@ const api: ElectronAPI = {
 
   getSettings: () => ipcRenderer.invoke('db:getSettings'),
   updateSettings: (settings) => ipcRenderer.invoke('db:updateSettings', settings),
+  getBookSettings: (bookId) => ipcRenderer.invoke('db:getBookSettings', bookId),
+  updateBookSettings: (bookId, settings) => ipcRenderer.invoke('db:updateBookSettings', bookId, settings),
+  deleteBookSettings: (bookId) => ipcRenderer.invoke('db:deleteBookSettings', bookId),
+
+  getBookshelves: () => ipcRenderer.invoke('db:getBookshelves'),
+  addBookshelf: (name) => ipcRenderer.invoke('db:addBookshelf', name),
+  deleteBookshelf: (id) => ipcRenderer.invoke('db:deleteBookshelf', id),
+  renameBookshelf: (id, name) => ipcRenderer.invoke('db:renameBookshelf', id, name),
+  getBooksInShelf: (shelfId) => ipcRenderer.invoke('db:getBooksInShelf', shelfId),
+  addBookToShelf: (shelfId, bookId) => ipcRenderer.invoke('db:addBookToShelf', shelfId, bookId),
+  removeBookFromShelf: (shelfId, bookId) => ipcRenderer.invoke('db:removeBookFromShelf', shelfId, bookId),
+  getShelvesForBook: (bookId) => ipcRenderer.invoke('db:getShelvesForBook', bookId),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

@@ -12,7 +12,7 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const text = new TextDecoder('utf-8').decode(content)
 
-  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
+  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
   const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
 
   useEffect(() => {
@@ -28,9 +28,18 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   useEffect(() => {
     if (turnPageDelta === null || !containerRef.current) return
     const container = containerRef.current
-    container.scrollBy({ top: turnPageDelta > 0 ? container.clientHeight * 0.9 : -container.clientHeight * 0.9, behavior: 'smooth' })
+    container.scrollBy({ top: turnPageDelta > 0 ? container.clientHeight : -container.clientHeight, behavior: 'smooth' })
     clearTurnPage()
   }, [turnPageDelta])
+
+  // Handle seek from progress bar
+  useEffect(() => {
+    if (seekTarget === null || !containerRef.current) return
+    const container = containerRef.current
+    const scrollTop = (seekTarget / 100) * (container.scrollHeight - container.clientHeight)
+    container.scrollTop = scrollTop
+    clearSeekTarget()
+  }, [seekTarget])
 
   useEffect(() => {
     if (!containerRef.current) return

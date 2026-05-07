@@ -9,7 +9,10 @@ export function registerDbHandlers(db: DatabaseService) {
 
   // Reading Progress
   ipcMain.handle('db:getProgress', (_e, bookId: number) => db.getReadingProgress(bookId))
-  ipcMain.handle('db:updateProgress', (_e, bookId: number, progress: any) => db.upsertReadingProgress(bookId, progress))
+  ipcMain.handle('db:updateProgress', (_e, bookId: number, progress: any) => {
+    db.upsertReadingProgress(bookId, progress)
+    db.updateBookLastOpened(bookId)
+  })
 
   // Bookmarks
   ipcMain.handle('db:getBookmarks', (_e, bookId: number) => db.getBookmarks(bookId))
@@ -27,7 +30,22 @@ export function registerDbHandlers(db: DatabaseService) {
   ipcMain.handle('db:updateNote', (_e, id: number, content: string) => db.updateNote(id, content))
   ipcMain.handle('db:deleteNote', (_e, id: number) => db.deleteNote(id))
 
+  // Bookshelves
+  ipcMain.handle('db:getBookshelves', () => db.getBookshelves())
+  ipcMain.handle('db:addBookshelf', (_e, name: string) => db.addBookshelf(name))
+  ipcMain.handle('db:deleteBookshelf', (_e, id: number) => db.deleteBookshelf(id))
+  ipcMain.handle('db:renameBookshelf', (_e, id: number, name: string) => db.renameBookshelf(id, name))
+  ipcMain.handle('db:getBooksInShelf', (_e, shelfId: number) => db.getBooksInShelf(shelfId))
+  ipcMain.handle('db:addBookToShelf', (_e, shelfId: number, bookId: number) => db.addBookToShelf(shelfId, bookId))
+  ipcMain.handle('db:removeBookFromShelf', (_e, shelfId: number, bookId: number) => db.removeBookFromShelf(shelfId, bookId))
+  ipcMain.handle('db:getShelvesForBook', (_e, bookId: number) => db.getShelvesForBook(bookId))
+
   // Settings
   ipcMain.handle('db:getSettings', () => db.getSettings())
   ipcMain.handle('db:updateSettings', (_e, settings: any) => db.updateSettings(settings))
+
+  // Per-book settings
+  ipcMain.handle('db:getBookSettings', (_e, bookId: number) => db.getBookSettings(bookId))
+  ipcMain.handle('db:updateBookSettings', (_e, bookId: number, settings: any) => db.updateBookSettings(bookId, settings))
+  ipcMain.handle('db:deleteBookSettings', (_e, bookId: number) => db.deleteBookSettings(bookId))
 }
