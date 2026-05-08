@@ -5,8 +5,9 @@ import { useSettingsStore } from './stores/settingsStore'
 import { useLibraryStore } from './stores/libraryStore'
 
 const GlobalSettings = lazy(() => import('./components/Settings/GlobalSettings').then(m => ({ default: m.GlobalSettings })))
+const ZLibraryView = lazy(() => import('./components/ZLibrary/ZLibraryView').then(m => ({ default: m.ZLibraryView })))
 
-type Page = 'library' | 'settings'
+type Page = 'library' | 'settings' | 'zlibrary'
 
 export default function App() {
   const [currentBookId, setCurrentBookId] = useState<number | null>(null)
@@ -50,5 +51,17 @@ export default function App() {
     )
   }
 
-  return <Library onOpenBook={openBook} onOpenSettings={() => setPage('settings')} />
+  if (page === 'zlibrary') {
+    return (
+      <Suspense fallback={
+        <div className="h-screen flex items-center justify-center bg-[var(--reader-bg)]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+        </div>
+      }>
+        <ZLibraryView onBack={() => setPage('library')} />
+      </Suspense>
+    )
+  }
+
+  return <Library onOpenBook={openBook} onOpenSettings={() => setPage('settings')} onOpenZLibrary={() => setPage('zlibrary')} />
 }

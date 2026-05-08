@@ -12,9 +12,10 @@ const BookSourcePanel = lazy(() => import('./BookSourcePanel').then(m => ({ defa
 interface LibraryProps {
   onOpenBook: (bookId: number) => void
   onOpenSettings: () => void
+  onOpenZLibrary: () => void
 }
 
-export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
+export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryProps) {
   const { books, isLoading, viewMode, searchQuery, sortBy, activeShelfId, bookshelves, setViewMode, setSearchQuery, setSortBy, importBooks, loadBooks, loadBookshelves, loadReadingTime, loadReadingProgress } = useLibraryStore()
   const [isDragOver, setIsDragOver] = useState(false)
   const [showStatistics, setShowStatistics] = useState(false)
@@ -204,7 +205,7 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
       <main className="flex-1 flex overflow-hidden relative">
         {/* Bookshelf sidebar */}
         <div className="w-48 flex-shrink-0 border-r border-[var(--reader-border)] bg-[var(--reader-bg)] overflow-y-auto">
-          <BookShelfPanel onOpenBookSource={() => setShowBookSource(true)} />
+          <BookShelfPanel onOpenBookSource={() => setShowBookSource(true)} onOpenZLibrary={onOpenZLibrary} />
         </div>
 
         {/* Book area */}

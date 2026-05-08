@@ -32,19 +32,37 @@ export function registerFileHandlers(library: LibraryService) {
   })
 
   ipcMain.handle('file:read', async (_event, filePath: string) => {
-    const buf = readFileSync(filePath)
-    return new Uint8Array(buf)
+    try {
+      const buf = readFileSync(filePath)
+      return new Uint8Array(buf)
+    } catch {
+      return null
+    }
   })
 
   ipcMain.handle('book:metadata', async (_event, filePath: string) => {
-    return library.importBook(filePath)
+    try {
+      return await library.importBook(filePath)
+    } catch (e: any) {
+      console.error('book:metadata failed:', e?.message)
+      return null
+    }
   })
 
   ipcMain.handle('book:import', async (_event, filePaths: string[]) => {
-    return library.importBooks(filePaths)
+    try {
+      return await library.importBooks(filePaths)
+    } catch (e: any) {
+      console.error('book:import failed:', e?.message)
+      return []
+    }
   })
 
   ipcMain.handle('book:cover', async (_event, bookId: number) => {
-    return library.getCoverImage(bookId)
+    try {
+      return await library.getCoverImage(bookId)
+    } catch {
+      return null
+    }
   })
 }

@@ -3,14 +3,17 @@ import { join } from 'path'
 import { DatabaseService } from './services/database'
 import { LibraryService } from './services/library'
 import { BookSourceService } from './services/bookSource'
+import { ZLibraryService } from './services/zlibrary'
 import { registerFileHandlers } from './ipc/fileHandlers'
 import { registerDbHandlers } from './ipc/dbHandlers'
 import { registerBookSourceHandlers } from './ipc/bookSourceHandlers'
+import { registerZlibHandlers } from './ipc/zlibHandlers'
 
 let mainWindow: BrowserWindow | null = null
 let db: DatabaseService
 let library: LibraryService
 let bookSourceService: BookSourceService
+let zlibService: ZLibraryService
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -35,20 +38,7 @@ function createWindow() {
     mainWindow.loadFile(htmlPath)
   }
 
-  mainWindow.webContents.openDevTools()
-
-  mainWindow.webContents.on('did-finish-load', () => {
-    console.log('Page loaded successfully')
-  })
-
-  mainWindow.webContents.on('did-fail-load', (_e, code, desc) => {
-    console.error('Page load failed:', code, desc)
-  })
-
-  mainWindow.webContents.on('console-message', (_event, level, message, line, sourceId) => {
-    const levels = ['verbose', 'info', 'warning', 'error']
-    console.log(`[renderer ${levels[level] || level}] ${message} (${sourceId}:${line})`)
-  })
+  mainWindow.webContents.on('did-finish-load', () => {})
 
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -70,7 +60,11 @@ app.whenReady().then(() => {
   bookSourceService = new BookSourceService(db, library)
   registerBookSourceHandlers(db, bookSourceService)
 
+  zlibService = new ZLibraryService(library)
+
   createWindow()
+
+  registerZlibHandlers(zlibService, mainWindow!)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
@@ -81,3 +75,26 @@ app.on('window-all-closed', () => {
   db.close()
   if (process.platform !== 'darwin') app.quit()
 })
+
+// Suppress EPIPE from broken pipes (VS Code / npm terminal)
+function isEpipe(e: any): boolean {
+  return e?.code === 'EPIPE' || (typeof e?.message === 'string' && e.message.includes('EPIPE'))
+}
+
+const _origLog = console.log
+const _origError = console.error
+const _origWarn = console.warn
+const noop = () => {}
+function safeLog(fn: Function) {
+  return (...args: any[]) => { try { return fn(...args) } catch (e: any) { if (!isEpipe(e)) throw e } }
+}
+console.log = safeLog(_origLog) as any
+console.error = safeLog(_origError) as any
+console.warn = safeLog(_origWarn) as any
+
+process.on('uncaughtException', (err: any) => {
+  if (isEpipe(err)) return
+  _origError('Uncaught exception:', err)
+})
+
+process.on('unhandledRejection', noop)

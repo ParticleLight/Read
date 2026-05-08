@@ -69,6 +69,19 @@ export interface ElectronAPI {
   downloadBook: (sourceId: number, bookUrl: string, bookName: string, format: string) => Promise<number>
   onDownloadProgress: (callback: (progress: any) => void) => () => void
 
+  // Z-Library
+  zlibShow: () => Promise<void>
+  zlibHide: () => Promise<void>
+  zlibNavigate: (action: 'back' | 'forward' | 'reload') => Promise<void>
+  zlibGetURL: () => Promise<string>
+  zlibSetBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>
+  onZlibDownloadProgress: (callback: (progress: any) => void) => () => void
+  onZlibDownloadComplete: (callback: (data: any) => void) => () => void
+  onZlibImportComplete: (callback: (data: any) => void) => () => void
+  onZlibImportError: (callback: (data: any) => void) => () => void
+  onZlibUrlChanged: (callback: (url: string) => void) => () => void
+  onZlibTitleChanged: (callback: (title: string) => void) => () => void
+
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>
   endReadingSession: (sessionId: number) => Promise<void>
@@ -140,6 +153,42 @@ const api: ElectronAPI = {
     const handler = (_event: any, progress: any) => callback(progress)
     ipcRenderer.on('bookSource:downloadProgress', handler)
     return () => ipcRenderer.removeListener('bookSource:downloadProgress', handler)
+  },
+
+  zlibShow: () => ipcRenderer.invoke('zlib:show'),
+  zlibHide: () => ipcRenderer.invoke('zlib:hide'),
+  zlibNavigate: (action) => ipcRenderer.invoke('zlib:navigate', action),
+  zlibGetURL: () => ipcRenderer.invoke('zlib:getURL'),
+  zlibSetBounds: (bounds) => ipcRenderer.invoke('zlib:setBounds', bounds),
+  onZlibDownloadProgress: (callback) => {
+    const handler = (_event: any, progress: any) => callback(progress)
+    ipcRenderer.on('zlib:downloadProgress', handler)
+    return () => ipcRenderer.removeListener('zlib:downloadProgress', handler)
+  },
+  onZlibDownloadComplete: (callback) => {
+    const handler = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('zlib:downloadComplete', handler)
+    return () => ipcRenderer.removeListener('zlib:downloadComplete', handler)
+  },
+  onZlibImportComplete: (callback) => {
+    const handler = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('zlib:importComplete', handler)
+    return () => ipcRenderer.removeListener('zlib:importComplete', handler)
+  },
+  onZlibImportError: (callback) => {
+    const handler = (_event: any, data: any) => callback(data)
+    ipcRenderer.on('zlib:importError', handler)
+    return () => ipcRenderer.removeListener('zlib:importError', handler)
+  },
+  onZlibUrlChanged: (callback) => {
+    const handler = (_event: any, url: string) => callback(url)
+    ipcRenderer.on('zlib:urlChanged', handler)
+    return () => ipcRenderer.removeListener('zlib:urlChanged', handler)
+  },
+  onZlibTitleChanged: (callback) => {
+    const handler = (_event: any, title: string) => callback(title)
+    ipcRenderer.on('zlib:titleChanged', handler)
+    return () => ipcRenderer.removeListener('zlib:titleChanged', handler)
   },
 
   startReadingSession: (bookId) => ipcRenderer.invoke('db:startReadingSession', bookId),

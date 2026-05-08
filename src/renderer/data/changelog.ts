@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.5.0',
+    date: '2026-05-08',
+    changes: [
+      { type: 'feature', text: '内置 Z-Library 网页浏览器，支持在应用内直接登录并浏览 Z-Library' },
+      { type: 'feature', text: 'Z-Library 下载的书籍自动导入书架，无需手动操作' },
+      { type: 'feature', text: 'Z-Library 登录状态持久保存，下次打开无需重复登录' },
+      { type: 'feature', text: 'Z-Library 工具栏支持前进、后退、刷新导航操作' },
+    ],
+  },
+  {
     version: '1.4.0',
     date: '2026-05-08',
     changes: [

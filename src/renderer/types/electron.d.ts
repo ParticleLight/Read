@@ -61,6 +61,19 @@ interface ElectronAPI {
   downloadBook: (sourceId: number, bookUrl: string, bookName: string, format: string) => Promise<number>
   onDownloadProgress: (callback: (progress: any) => void) => () => void
 
+  // Z-Library
+  zlibShow: () => Promise<void>
+  zlibHide: () => Promise<void>
+  zlibNavigate: (action: 'back' | 'forward' | 'reload') => Promise<void>
+  zlibGetURL: () => Promise<string>
+  zlibSetBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>
+  onZlibDownloadProgress: (callback: (progress: any) => void) => () => void
+  onZlibDownloadComplete: (callback: (data: any) => void) => () => void
+  onZlibImportComplete: (callback: (data: any) => void) => () => void
+  onZlibImportError: (callback: (data: any) => void) => () => void
+  onZlibUrlChanged: (callback: (url: string) => void) => () => void
+  onZlibTitleChanged: (callback: (title: string) => void) => () => void
+
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>
   endReadingSession: (sessionId: number) => Promise<void>
