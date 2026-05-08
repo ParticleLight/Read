@@ -1,6 +1,6 @@
 # ParticleBook
 
-一款简洁优雅的全功能电子书阅读器，基于 Electron + React 构建，支持多种电子书格式。
+一款内置 Z-Library 的全功能电子书阅读器，基于 Electron + React 构建，支持 EPUB、PDF、MOBI、TXT、FB2、CBZ/CBR、HTML、Markdown 等多种格式。
 
 ## 支持格式
 

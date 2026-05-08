@@ -207,7 +207,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 </div>
               </div>
               <p className="text-sm text-[var(--reader-text)] opacity-70 leading-relaxed mb-3">
-                一款简洁优雅的全功能电子书阅读器，支持 EPUB、PDF、MOBI、TXT、FB2、CBZ/CBR、HTML、Markdown 等多种格式。
+                一款内置 Z-Library 的全功能电子书阅读器，支持 EPUB、PDF、MOBI、TXT、FB2、CBZ/CBR、HTML、Markdown 等多种格式。
               </p>
               <p className="text-sm text-[var(--reader-text)] opacity-70 leading-relaxed mb-3">
                 提供书架管理、阅读进度同步、书签、高亮标注、笔记、多种主题切换等功能，为您带来舒适的阅读体验。
