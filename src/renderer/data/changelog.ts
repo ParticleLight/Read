@@ -9,6 +9,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.7.0',
+    date: '2026-05-08',
+    changes: [
+      { type: 'feature', text: 'PDF 阅读器改为连续滚动模式，滚轮自由滚动浏览所有页面' },
+      { type: 'improve', text: '删除书籍改为弹出确认对话框，替代原来的两次点击确认' },
+      { type: 'fix', text: '修复 EPUB 滚轮翻页失效的问题，iframe 内滚轮事件正确转发到父窗口' },
+      { type: 'fix', text: '修复统计面板中 PDF/CBZ 封面不显示的问题' },
+      { type: 'feature', text: 'Z-Library 工具栏新增退出登录按钮，清除登录状态并返回首页' },
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-05-08',
     changes: [
@@ -26,7 +37,7 @@ export const changelog: ChangelogEntry[] = [
       { type: 'fix', text: '修复亮色模式下多个界面文字不可见的问题' },
       { type: 'fix', text: '修复亮色模式下阅读器侧边栏、设置面板颜色异常' },
       { type: 'fix', text: 'Z-Library 改为全屏独立页面，提升浏览体验' },
-      { type: 'feature', text: '支持鼠标滚轮翻页（EPUB、PDF、CBZ/CBR 格式），滚动间隔 200ms 防抖' },
+      { type: 'feature', text: '支持鼠标滚轮翻页（EPUB、CBZ/CBR 格式），滚动间隔 200ms 防抖' },
       { type: 'feature', text: '书架工具栏新增刷新按钮，可手动刷新书籍列表' },
     ],
   },

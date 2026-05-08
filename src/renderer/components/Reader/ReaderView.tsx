@@ -154,7 +154,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   // Mouse wheel page turning for paginated formats
   useEffect(() => {
     if (!book) return
-    const isPaginated = ['epub', 'pdf', 'cbz', 'cbr'].includes(book.format)
+    const isPaginated = ['epub', 'cbz', 'cbr'].includes(book.format)
     if (!isPaginated) return
 
     let wheelTimer: ReturnType<typeof setTimeout> | null = null

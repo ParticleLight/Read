@@ -3,6 +3,7 @@ import { Book } from '../../stores/libraryStore'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { safeText } from '../../utils/safeText'
 import { formatColors } from '../../utils/format'
+import { ConfirmDialog } from '../UI/ConfirmDialog'
 
 interface BookListProps {
   books: Book[]
@@ -19,20 +20,15 @@ export function BookList({ books, onOpenBook }: BookListProps) {
   const deleteBook = useLibraryStore((s) => s.deleteBook)
   const activeShelfId = useLibraryStore((s) => s.activeShelfId)
   const removeBookFromShelf = useLibraryStore((s) => s.removeBookFromShelf)
-  const [confirmId, setConfirmId] = useState<number | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Book | null>(null)
 
-  const handleDelete = (e: React.MouseEvent, bookId: number) => {
+  const handleDelete = (e: React.MouseEvent, book: Book) => {
     e.stopPropagation()
     if (activeShelfId != null) {
-      removeBookFromShelf(activeShelfId, bookId)
+      removeBookFromShelf(activeShelfId, book.id)
       return
     }
-    if (confirmId === bookId) {
-      deleteBook(bookId)
-      setConfirmId(null)
-    } else {
-      setConfirmId(bookId)
-    }
+    setDeleteTarget(book)
   }
 
   return (
@@ -72,16 +68,10 @@ export function BookList({ books, onOpenBook }: BookListProps) {
           </div>
           <div className="col-span-1 flex items-center justify-end">
             <button
-              onClick={(e) => handleDelete(e, book.id)}
-              className={`p-1.5 rounded-lg transition-colors ${
-                activeShelfId != null
-                  ? 'opacity-0 group-hover:opacity-100 hover:bg-[var(--reader-sidebar)]'
-                  : confirmId === book.id
-                    ? 'bg-red-600 text-white'
-                    : 'opacity-0 group-hover:opacity-100 text-[var(--reader-text)] opacity-60 hover:bg-[var(--reader-sidebar)]'
-              }`}
-              style={activeShelfId != null ? { color: 'var(--color-orange)' } : undefined}
-              title={activeShelfId != null ? '从书柜移除' : confirmId === book.id ? '再次点击确认删除' : '删除'}
+              onClick={(e) => handleDelete(e, book)}
+              className={`p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 hover:bg-[var(--reader-sidebar)]`}
+              style={activeShelfId != null ? { color: 'var(--color-orange)' } : { color: 'var(--reader-text)', opacity: 0.6 }}
+              title={activeShelfId != null ? '从书柜移除' : '删除'}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={activeShelfId != null ? "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" : "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"} />
@@ -90,6 +80,17 @@ export function BookList({ books, onOpenBook }: BookListProps) {
           </div>
         </div>
       ))}
+
+      {deleteTarget && (
+        <ConfirmDialog
+          title="删除书籍"
+          message={`确定要删除《${safeText(deleteTarget.title)}》吗？此操作不可撤销。`}
+          confirmText="删除"
+          danger
+          onConfirm={() => { deleteBook(deleteTarget.id); setDeleteTarget(null) }}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   )
 }

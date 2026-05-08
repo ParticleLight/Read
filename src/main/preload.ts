@@ -160,6 +160,7 @@ const api: ElectronAPI = {
   zlibNavigate: (action) => ipcRenderer.invoke('zlib:navigate', action),
   zlibGetURL: () => ipcRenderer.invoke('zlib:getURL'),
   zlibSetBounds: (bounds) => ipcRenderer.invoke('zlib:setBounds', bounds),
+  zlibLogout: () => ipcRenderer.invoke('zlib:logout'),
   onZlibDownloadProgress: (callback) => {
     const handler = (_event: any, progress: any) => callback(progress)
     ipcRenderer.on('zlib:downloadProgress', handler)

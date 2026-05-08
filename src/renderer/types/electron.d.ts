@@ -67,6 +67,7 @@ interface ElectronAPI {
   zlibNavigate: (action: 'back' | 'forward' | 'reload') => Promise<void>
   zlibGetURL: () => Promise<string>
   zlibSetBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>
+  zlibLogout: () => Promise<void>
   onZlibDownloadProgress: (callback: (progress: any) => void) => () => void
   onZlibDownloadComplete: (callback: (data: any) => void) => () => void
   onZlibImportComplete: (callback: (data: any) => void) => () => void

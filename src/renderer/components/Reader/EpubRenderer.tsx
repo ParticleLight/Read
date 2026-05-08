@@ -162,6 +162,18 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
           window.dispatchEvent(new MouseEvent('mousemove'))
         })
 
+        // Forward wheel events to parent window for page turning
+        doc.addEventListener('wheel', (e: WheelEvent) => {
+          window.dispatchEvent(new WheelEvent('wheel', {
+            deltaY: e.deltaY,
+            deltaX: e.deltaX,
+            ctrlKey: e.ctrlKey,
+            shiftKey: e.shiftKey,
+            altKey: e.altKey,
+            bubbles: true,
+          }))
+        })
+
         // Fallback: detect selection via mouseup if 'selected' event doesn't fire
         doc.addEventListener('mouseup', () => {
           setTimeout(() => {

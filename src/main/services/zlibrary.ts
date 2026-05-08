@@ -128,6 +128,14 @@ export class ZLibraryService {
     }
   }
 
+  async logout() {
+    await this.zlibSession.clearStorageData()
+    await this.zlibSession.clearCache()
+    if (this.view && !this.view.webContents.isDestroyed()) {
+      this.view.webContents.loadURL(DEFAULT_URL).catch(() => {})
+    }
+  }
+
   private async handleDownload(item: DownloadItem) {
     const fileName = item.getFilename()
     const downloadDir = join(app.getPath('downloads'), 'ParticleBook')

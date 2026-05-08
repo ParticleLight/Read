@@ -8,6 +8,39 @@ interface StatisticsPanelProps {
   isClosing: boolean
 }
 
+async function generatePdfPreview(filePath: string): Promise<string | null> {
+  try {
+    const pdfjsLib = await import('pdfjs-dist')
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.mjs', window.location.href).href
+    const content = await window.electronAPI.readFile(filePath)
+    const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(content) }).promise
+    const page = await pdf.getPage(1)
+    const viewport = page.getViewport({ scale: 1.5 })
+    const canvas = document.createElement('canvas')
+    canvas.width = viewport.width
+    canvas.height = viewport.height
+    await page.render({ canvasContext: canvas.getContext('2d')!, viewport }).promise
+    return canvas.toDataURL('image/jpeg', 0.7)
+  } catch {
+    return null
+  }
+}
+
+async function generateCbzPreview(filePath: string): Promise<string | null> {
+  try {
+    const JSZip = (await import('jszip')).default
+    const content = await window.electronAPI.readFile(filePath)
+    const zip = await JSZip.loadAsync(new Uint8Array(content))
+    const imageFiles: string[] = []
+    zip.forEach((path) => { if (/\.(jpg|jpeg|png|gif|webp)$/i.test(path)) imageFiles.push(path) })
+    imageFiles.sort()
+    if (imageFiles.length === 0) return null
+    return URL.createObjectURL(await zip.file(imageFiles[0])!.async('blob'))
+  } catch {
+    return null
+  }
+}
+
 function BookRow({ book, readingTime, progress }: { book: Book; readingTime: number; progress: number }) {
   const [coverUrl, setCoverUrl] = useState<string | null>(null)
   const [textPreview, setTextPreview] = useState<string | null>(null)
@@ -19,6 +52,12 @@ function BookRow({ book, readingTime, progress }: { book: Book; readingTime: num
       if (!mounted) return
       if (cover) {
         setCoverUrl(cover)
+      } else if (book.format === 'pdf') {
+        const preview = await generatePdfPreview(book.file_path)
+        if (mounted && preview) setCoverUrl(preview)
+      } else if (book.format === 'cbz' || book.format === 'cbr') {
+        const preview = await generateCbzPreview(book.file_path)
+        if (mounted && preview) setCoverUrl(preview)
       } else {
         const preview = await extractTextPreview(book.file_path)
         if (mounted) setTextPreview(preview)
@@ -26,7 +65,7 @@ function BookRow({ book, readingTime, progress }: { book: Book; readingTime: num
     }
     load()
     return () => { mounted = false }
-  }, [book.id, book.file_path])
+  }, [book.id, book.file_path, book.format])
 
   return (
     <div className="flex items-center gap-3 py-2">

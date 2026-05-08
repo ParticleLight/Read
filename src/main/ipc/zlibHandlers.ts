@@ -27,4 +27,8 @@ export function registerZlibHandlers(zlibService: ZLibraryService, mainWindow: B
   ipcMain.handle('zlib:setBounds', (_event, bounds: { x: number; y: number; width: number; height: number }) => {
     try { zlibService.setBounds(bounds) } catch {}
   })
+
+  ipcMain.handle('zlib:logout', async () => {
+    try { await zlibService.logout() } catch {}
+  })
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Book, useLibraryStore } from '../../stores/libraryStore'
 import { safeText } from '../../utils/safeText'
 import { formatReadingTime, extractTextPreview, formatColors } from '../../utils/format'
+import { ConfirmDialog } from '../UI/ConfirmDialog'
 
 interface BookCardProps {
   book: Book
@@ -58,7 +59,7 @@ export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShel
   const [textPreview, setTextPreview] = useState<string | null>(null)
   const [showMenu, setShowMenu] = useState(false)
   const [showShelfMenu, setShowShelfMenu] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [showConfirmDelete, setShowConfirmDelete] = useState(false)
   const objectUrlRef = useRef<string | null>(null)
 
   const { bookshelves, addBookToShelf, readingTimeMap } = useLibraryStore()
@@ -201,23 +202,27 @@ export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShel
             >
               从书柜移除
             </button>
-          ) : !confirmDelete ? (
+          ) : (
             <button
-              onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
+              onClick={(e) => { e.stopPropagation(); setShowConfirmDelete(true); setShowMenu(false) }}
               className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--reader-border)]"
               style={{ color: 'var(--color-red)' }}
             >
               删除
             </button>
-          ) : (
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(book.id); setShowMenu(false); setConfirmDelete(false) }}
-              className="w-full text-left px-4 py-2 text-sm text-white bg-red-600 hover:bg-red-700"
-            >
-              确认删除
-            </button>
           )}
         </div>
+      )}
+
+      {showConfirmDelete && (
+        <ConfirmDialog
+          title="删除书籍"
+          message={`确定要删除《${safeText(book.title)}》吗？此操作不可撤销。`}
+          confirmText="删除"
+          danger
+          onConfirm={() => { onDelete(book.id); setShowConfirmDelete(false) }}
+          onCancel={() => setShowConfirmDelete(false)}
+        />
       )}
     </div>
   )
