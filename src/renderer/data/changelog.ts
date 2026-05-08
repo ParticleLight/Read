@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.4.0',
+    date: '2026-05-08',
+    changes: [
+      { type: 'feature', text: '书源管理：支持导入 Legado 格式 JSON 书源配置文件' },
+      { type: 'feature', text: '在线搜索：通过书源在线搜索书籍，支持多源并发搜索' },
+      { type: 'feature', text: '在线下载：搜索结果可一键下载到本地书架，支持下载进度显示' },
+      { type: 'feature', text: '书源管理面板：启用/禁用、删除书源，查看源列表' },
+    ],
+  },
+  {
     version: '1.3.0',
     date: '2026-05-08',
     changes: [

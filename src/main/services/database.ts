@@ -84,6 +84,51 @@ interface ReadingSession {
   duration_seconds: number
 }
 
+interface SearchBookRules {
+  bookList: string
+  name: string
+  author: string
+  bookUrl: string
+  coverUrl?: string
+  lastChapter?: string
+  intro?: string
+}
+
+interface BookInfoRules {
+  name?: string
+  author?: string
+  coverUrl?: string
+  intro?: string
+  tocUrl?: string
+}
+
+interface TocRules {
+  chapterList: string
+  chapterName: string
+  chapterUrl: string
+}
+
+interface ContentRules {
+  content: string
+  title?: string
+  nextContentUrl?: string
+}
+
+interface BookSource {
+  id: number
+  bookSourceName: string
+  bookSourceUrl: string
+  bookSourceType: number
+  enabled: boolean
+  searchUrl: string
+  ruleSearch: SearchBookRules
+  ruleBookInfo: BookInfoRules
+  ruleToc: TocRules
+  ruleContent: ContentRules
+  lastUsed?: string
+  added_at: string
+}
+
 interface DBData {
   books: Book[]
   reading_progress: ReadingProgress[]
@@ -93,6 +138,7 @@ interface DBData {
   bookshelves: Bookshelf[]
   bookshelf_books: BookshelfBook[]
   reading_sessions: ReadingSession[]
+  book_sources: BookSource[]
   settings: Record<string, any>
   book_settings: Record<number, Record<string, any>>
   nextId: number
@@ -107,6 +153,7 @@ const defaultData: DBData = {
   bookshelves: [],
   bookshelf_books: [],
   reading_sessions: [],
+  book_sources: [],
   settings: {},
   book_settings: {},
   nextId: 1,
@@ -128,6 +175,7 @@ export class DatabaseService {
       if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
       if (!this.db.data.reading_sessions) this.db.data.reading_sessions = []
       if (!this.db.data.book_settings) this.db.data.book_settings = {}
+      if (!this.db.data.book_sources) this.db.data.book_sources = []
       this.db.write()
     })
   }
@@ -418,6 +466,82 @@ export class DatabaseService {
     return this.db.data.bookshelf_books
       .filter((sb) => sb.book_id === bookId)
       .map((sb) => sb.shelf_id)
+  }
+
+  // Book Sources
+  getBookSources(): BookSource[] {
+    if (!this.db.data.book_sources) this.db.data.book_sources = []
+    return this.db.data.book_sources.sort((a, b) =>
+      new Date(b.added_at).getTime() - new Date(a.added_at).getTime()
+    )
+  }
+
+  getBookSource(id: number): BookSource | undefined {
+    return this.db.data.book_sources?.find((s) => s.id === id)
+  }
+
+  insertBookSource(source: Omit<BookSource, 'id' | 'added_at'>): BookSource {
+    if (!this.db.data.book_sources) this.db.data.book_sources = []
+    const newSource: BookSource = {
+      ...source,
+      id: this.getNextId(),
+      added_at: new Date().toISOString(),
+    }
+    this.db.data.book_sources.push(newSource)
+    this.db.write()
+    return newSource
+  }
+
+  updateBookSource(id: number, updates: Partial<BookSource>): void {
+    const source = this.db.data.book_sources?.find((s) => s.id === id)
+    if (source) {
+      Object.assign(source, updates)
+      this.db.write()
+    }
+  }
+
+  deleteBookSource(id: number): void {
+    if (!this.db.data.book_sources) return
+    this.db.data.book_sources = this.db.data.book_sources.filter((s) => s.id !== id)
+    this.db.write()
+  }
+
+  toggleBookSource(id: number): void {
+    const source = this.db.data.book_sources?.find((s) => s.id === id)
+    if (source) {
+      source.enabled = !source.enabled
+      this.db.write()
+    }
+  }
+
+  importBookSources(sources: Omit<BookSource, 'id' | 'added_at'>[]): number {
+    if (!this.db.data.book_sources) this.db.data.book_sources = []
+    let imported = 0
+    for (const source of sources) {
+      const exists = this.db.data.book_sources.some((s) => s.bookSourceUrl === source.bookSourceUrl)
+      if (exists) continue
+      this.db.data.book_sources.push({
+        ...source,
+        id: this.getNextId(),
+        added_at: new Date().toISOString(),
+      })
+      imported++
+    }
+    this.db.write()
+    return imported
+  }
+
+  updateBookSourceLastUsed(id: number): void {
+    const source = this.db.data.book_sources?.find((s) => s.id === id)
+    if (source) {
+      source.lastUsed = new Date().toISOString()
+      this.db.write()
+    }
+  }
+
+  clearAllBookSources(): void {
+    this.db.data.book_sources = []
+    this.db.write()
   }
 
   // Settings

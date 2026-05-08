@@ -45,6 +45,22 @@ interface ElectronAPI {
   // Utilities
   getFilePath: (file: File) => string
 
+  // Book Sources
+  getBookSources: () => Promise<any[]>
+  getBookSource: (id: number) => Promise<any>
+  insertBookSource: (source: any) => Promise<any>
+  updateBookSource: (id: number, updates: any) => Promise<void>
+  deleteBookSource: (id: number) => Promise<void>
+  toggleBookSource: (id: number) => Promise<void>
+  clearAllBookSources: () => Promise<void>
+  importBookSources: () => Promise<{ imported: number; total: number }>
+  searchBooks: (keyword: string, page?: number) => Promise<any[]>
+  searchBooksFromSource: (sourceId: number, keyword: string, page?: number) => Promise<any[]>
+  getBookInfoFromSource: (sourceId: number, bookUrl: string) => Promise<any>
+  getChapterListFromSource: (sourceId: number, tocUrl: string) => Promise<any[]>
+  downloadBook: (sourceId: number, bookUrl: string, bookName: string, format: string) => Promise<number>
+  onDownloadProgress: (callback: (progress: any) => void) => () => void
+
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>
   endReadingSession: (sessionId: number) => Promise<void>

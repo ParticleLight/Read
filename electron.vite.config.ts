@@ -4,7 +4,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ include: ['lowdb', 'epubjs', 'fast-xml-parser', 'jszip', 'markdown-it', 'pdfjs-dist'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['lowdb'] })],
     build: {
       rollupOptions: {
         external: ['electron'],

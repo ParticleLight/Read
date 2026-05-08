@@ -7,6 +7,7 @@ import { safeText } from '../../utils/safeText'
 
 const StatisticsPanel = lazy(() => import('./StatisticsPanel').then(m => ({ default: m.StatisticsPanel })))
 const ChangelogPanel = lazy(() => import('./ChangelogPanel').then(m => ({ default: m.ChangelogPanel })))
+const BookSourcePanel = lazy(() => import('./BookSourcePanel').then(m => ({ default: m.BookSourcePanel })))
 
 interface LibraryProps {
   onOpenBook: (bookId: number) => void
@@ -18,6 +19,7 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [showStatistics, setShowStatistics] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
+  const [showBookSource, setShowBookSource] = useState(false)
 
   useEffect(() => {
     loadBookshelves()
@@ -202,7 +204,7 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
       <main className="flex-1 flex overflow-hidden relative">
         {/* Bookshelf sidebar */}
         <div className="w-48 flex-shrink-0 border-r border-[var(--reader-border)] bg-[var(--reader-bg)] overflow-y-auto">
-          <BookShelfPanel />
+          <BookShelfPanel onOpenBookSource={() => setShowBookSource(true)} />
         </div>
 
         {/* Book area */}
@@ -250,6 +252,13 @@ export function Library({ onOpenBook, onOpenSettings }: LibraryProps) {
       {showChangelog && (
         <Suspense fallback={null}>
           <ChangelogPanel onClose={() => setShowChangelog(false)} isClosing={false} />
+        </Suspense>
+      )}
+
+      {/* Book Source Panel */}
+      {showBookSource && (
+        <Suspense fallback={null}>
+          <BookSourcePanel onClose={() => setShowBookSource(false)} isClosing={false} />
         </Suspense>
       )}
     </div>

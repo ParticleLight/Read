@@ -53,6 +53,22 @@ export interface ElectronAPI {
   // Utilities
   getFilePath: (file: File) => string
 
+  // Book Sources
+  getBookSources: () => Promise<any[]>
+  getBookSource: (id: number) => Promise<any>
+  insertBookSource: (source: any) => Promise<any>
+  updateBookSource: (id: number, updates: any) => Promise<void>
+  deleteBookSource: (id: number) => Promise<void>
+  toggleBookSource: (id: number) => Promise<void>
+  clearAllBookSources: () => Promise<void>
+  importBookSources: () => Promise<{ imported: number; total: number }>
+  searchBooks: (keyword: string, page?: number) => Promise<any[]>
+  searchBooksFromSource: (sourceId: number, keyword: string, page?: number) => Promise<any[]>
+  getBookInfoFromSource: (sourceId: number, bookUrl: string) => Promise<any>
+  getChapterListFromSource: (sourceId: number, tocUrl: string) => Promise<any[]>
+  downloadBook: (sourceId: number, bookUrl: string, bookName: string, format: string) => Promise<number>
+  onDownloadProgress: (callback: (progress: any) => void) => () => void
+
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>
   endReadingSession: (sessionId: number) => Promise<void>
@@ -106,6 +122,25 @@ const api: ElectronAPI = {
   getShelvesForBook: (bookId) => ipcRenderer.invoke('db:getShelvesForBook', bookId),
 
   getFilePath: (file) => webUtils.getPathForFile(file),
+
+  getBookSources: () => ipcRenderer.invoke('bookSource:getAll'),
+  getBookSource: (id) => ipcRenderer.invoke('bookSource:get', id),
+  insertBookSource: (source) => ipcRenderer.invoke('bookSource:insert', source),
+  updateBookSource: (id, updates) => ipcRenderer.invoke('bookSource:update', id, updates),
+  deleteBookSource: (id) => ipcRenderer.invoke('bookSource:delete', id),
+  toggleBookSource: (id) => ipcRenderer.invoke('bookSource:toggle', id),
+  clearAllBookSources: () => ipcRenderer.invoke('bookSource:clearAll'),
+  importBookSources: () => ipcRenderer.invoke('bookSource:importFile'),
+  searchBooks: (keyword, page) => ipcRenderer.invoke('bookSource:search', keyword, page),
+  searchBooksFromSource: (sourceId, keyword, page) => ipcRenderer.invoke('bookSource:searchOne', sourceId, keyword, page),
+  getBookInfoFromSource: (sourceId, bookUrl) => ipcRenderer.invoke('bookSource:getBookInfo', sourceId, bookUrl),
+  getChapterListFromSource: (sourceId, tocUrl) => ipcRenderer.invoke('bookSource:getChapterList', sourceId, tocUrl),
+  downloadBook: (sourceId, bookUrl, bookName, format) => ipcRenderer.invoke('bookSource:download', sourceId, bookUrl, bookName, format),
+  onDownloadProgress: (callback) => {
+    const handler = (_event: any, progress: any) => callback(progress)
+    ipcRenderer.on('bookSource:downloadProgress', handler)
+    return () => ipcRenderer.removeListener('bookSource:downloadProgress', handler)
+  },
 
   startReadingSession: (bookId) => ipcRenderer.invoke('db:startReadingSession', bookId),
   endReadingSession: (sessionId) => ipcRenderer.invoke('db:endReadingSession', sessionId),

@@ -2,12 +2,15 @@ import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
 import { join } from 'path'
 import { DatabaseService } from './services/database'
 import { LibraryService } from './services/library'
+import { BookSourceService } from './services/bookSource'
 import { registerFileHandlers } from './ipc/fileHandlers'
 import { registerDbHandlers } from './ipc/dbHandlers'
+import { registerBookSourceHandlers } from './ipc/bookSourceHandlers'
 
 let mainWindow: BrowserWindow | null = null
 let db: DatabaseService
 let library: LibraryService
+let bookSourceService: BookSourceService
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -63,6 +66,9 @@ app.whenReady().then(() => {
 
   registerFileHandlers(library)
   registerDbHandlers(db)
+
+  bookSourceService = new BookSourceService(db, library)
+  registerBookSourceHandlers(db, bookSourceService)
 
   createWindow()
 
