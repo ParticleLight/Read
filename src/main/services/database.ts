@@ -161,6 +161,7 @@ const defaultData: DBData = {
 
 export class DatabaseService {
   private db: Low<DBData>
+  private writeTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor() {
     const dbDir = join(app.getPath('userData'), 'data')
@@ -176,7 +177,35 @@ export class DatabaseService {
       if (!this.db.data.reading_sessions) this.db.data.reading_sessions = []
       if (!this.db.data.book_settings) this.db.data.book_settings = {}
       if (!this.db.data.book_sources) this.db.data.book_sources = []
+      this.cleanupOldSessions()
       this.db.write()
+    })
+  }
+
+  private scheduleWrite(): void {
+    if (this.writeTimer) clearTimeout(this.writeTimer)
+    this.writeTimer = setTimeout(() => {
+      this.writeTimer = null
+      this.scheduleWrite()
+    }, 300)
+  }
+
+  flushWrite(): void {
+    if (this.writeTimer) {
+      clearTimeout(this.writeTimer)
+      this.writeTimer = null
+      this.scheduleWrite()
+    }
+  }
+
+  private cleanupOldSessions(): void {
+    if (!this.db.data.reading_sessions) return
+    const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000
+    this.db.data.reading_sessions = this.db.data.reading_sessions.filter((s) => {
+      if (s.ended_at) {
+        return new Date(s.ended_at).getTime() > cutoff
+      }
+      return true // keep active sessions
     })
   }
 
@@ -210,7 +239,7 @@ export class DatabaseService {
       added_at: new Date().toISOString(),
     }
     this.db.data.books.push(newBook)
-    this.db.write()
+    this.scheduleWrite()
     return newBook
   }
 
@@ -218,7 +247,7 @@ export class DatabaseService {
     const book = this.db.data.books.find((b) => b.id === id)
     if (book) {
       book.last_opened = new Date().toISOString()
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -229,7 +258,7 @@ export class DatabaseService {
     this.db.data.highlights = this.db.data.highlights.filter((h) => h.book_id !== id)
     this.db.data.notes = this.db.data.notes.filter((n) => n.book_id !== id)
     this.db.data.reading_sessions = this.db.data.reading_sessions.filter((s) => s.book_id !== id)
-    this.db.write()
+    this.scheduleWrite()
   }
 
   // Reading Sessions
@@ -241,7 +270,7 @@ export class DatabaseService {
       duration_seconds: 0,
     }
     this.db.data.reading_sessions.push(session)
-    this.db.write()
+    this.scheduleWrite()
     return session.id
   }
 
@@ -252,7 +281,7 @@ export class DatabaseService {
       const started = new Date(session.started_at).getTime()
       const ended = new Date(session.ended_at).getTime()
       session.duration_seconds = Math.floor((ended - started) / 1000)
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -260,7 +289,7 @@ export class DatabaseService {
     const session = this.db.data.reading_sessions.find((s) => s.id === sessionId)
     if (session) {
       session.duration_seconds = durationSeconds
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -309,7 +338,7 @@ export class DatabaseService {
         updated_at: new Date().toISOString(),
       })
     }
-    this.db.write()
+    this.scheduleWrite()
   }
 
   // Bookmarks
@@ -326,20 +355,20 @@ export class DatabaseService {
       created_at: new Date().toISOString(),
     }
     this.db.data.bookmarks.push(newBookmark)
-    this.db.write()
+    this.scheduleWrite()
     return newBookmark
   }
 
   deleteBookmark(id: number): void {
     this.db.data.bookmarks = this.db.data.bookmarks.filter((b) => b.id !== id)
-    this.db.write()
+    this.scheduleWrite()
   }
 
   updateBookmarkTitle(id: number, title: string): void {
     const bookmark = this.db.data.bookmarks.find((b) => b.id === id)
     if (bookmark) {
       bookmark.title = title
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -357,13 +386,13 @@ export class DatabaseService {
       created_at: new Date().toISOString(),
     }
     this.db.data.highlights.push(newHighlight)
-    this.db.write()
+    this.scheduleWrite()
     return newHighlight
   }
 
   deleteHighlight(id: number): void {
     this.db.data.highlights = this.db.data.highlights.filter((h) => h.id !== id)
-    this.db.write()
+    this.scheduleWrite()
   }
 
   // Notes
@@ -381,7 +410,7 @@ export class DatabaseService {
       updated_at: new Date().toISOString(),
     }
     this.db.data.notes.push(newNote)
-    this.db.write()
+    this.scheduleWrite()
     return newNote
   }
 
@@ -390,13 +419,13 @@ export class DatabaseService {
     if (note) {
       note.content = content
       note.updated_at = new Date().toISOString()
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
   deleteNote(id: number): void {
     this.db.data.notes = this.db.data.notes.filter((n) => n.id !== id)
-    this.db.write()
+    this.scheduleWrite()
   }
 
   // Bookshelves
@@ -413,14 +442,14 @@ export class DatabaseService {
       created_at: new Date().toISOString(),
     }
     this.db.data.bookshelves.push(newShelf)
-    this.db.write()
+    this.scheduleWrite()
     return newShelf
   }
 
   deleteBookshelf(id: number): void {
     if (this.db.data.bookshelves) this.db.data.bookshelves = this.db.data.bookshelves.filter((s) => s.id !== id)
     if (this.db.data.bookshelf_books) this.db.data.bookshelf_books = this.db.data.bookshelf_books.filter((sb) => sb.shelf_id !== id)
-    this.db.write()
+    this.scheduleWrite()
   }
 
   renameBookshelf(id: number, name: string): void {
@@ -428,7 +457,7 @@ export class DatabaseService {
     const shelf = this.db.data.bookshelves.find((s) => s.id === id)
     if (shelf) {
       shelf.name = name
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -449,7 +478,7 @@ export class DatabaseService {
         book_id: bookId,
         added_at: new Date().toISOString(),
       })
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -458,7 +487,7 @@ export class DatabaseService {
     this.db.data.bookshelf_books = this.db.data.bookshelf_books.filter(
       (sb) => !(sb.shelf_id === shelfId && sb.book_id === bookId)
     )
-    this.db.write()
+    this.scheduleWrite()
   }
 
   getShelvesForBook(bookId: number): number[] {
@@ -488,7 +517,7 @@ export class DatabaseService {
       added_at: new Date().toISOString(),
     }
     this.db.data.book_sources.push(newSource)
-    this.db.write()
+    this.scheduleWrite()
     return newSource
   }
 
@@ -496,21 +525,21 @@ export class DatabaseService {
     const source = this.db.data.book_sources?.find((s) => s.id === id)
     if (source) {
       Object.assign(source, updates)
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
   deleteBookSource(id: number): void {
     if (!this.db.data.book_sources) return
     this.db.data.book_sources = this.db.data.book_sources.filter((s) => s.id !== id)
-    this.db.write()
+    this.scheduleWrite()
   }
 
   toggleBookSource(id: number): void {
     const source = this.db.data.book_sources?.find((s) => s.id === id)
     if (source) {
       source.enabled = !source.enabled
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
@@ -527,7 +556,7 @@ export class DatabaseService {
       })
       imported++
     }
-    this.db.write()
+    this.scheduleWrite()
     return imported
   }
 
@@ -535,13 +564,13 @@ export class DatabaseService {
     const source = this.db.data.book_sources?.find((s) => s.id === id)
     if (source) {
       source.lastUsed = new Date().toISOString()
-      this.db.write()
+      this.scheduleWrite()
     }
   }
 
   clearAllBookSources(): void {
     this.db.data.book_sources = []
-    this.db.write()
+    this.scheduleWrite()
   }
 
   // Settings
@@ -551,7 +580,7 @@ export class DatabaseService {
 
   updateSettings(settings: Record<string, any>): void {
     this.db.data.settings = { ...this.db.data.settings, ...settings }
-    this.db.write()
+    this.scheduleWrite()
   }
 
   // Per-book settings
@@ -563,16 +592,16 @@ export class DatabaseService {
   updateBookSettings(bookId: number, settings: Record<string, any>): void {
     if (!this.db.data.book_settings) this.db.data.book_settings = {}
     this.db.data.book_settings[bookId] = { ...this.db.data.book_settings[bookId], ...settings }
-    this.db.write()
+    this.scheduleWrite()
   }
 
   deleteBookSettings(bookId: number): void {
     if (!this.db.data.book_settings) this.db.data.book_settings = {}
     delete this.db.data.book_settings[bookId]
-    this.db.write()
+    this.scheduleWrite()
   }
 
   close() {
-    this.db.write()
+    this.flushWrite()
   }
 }

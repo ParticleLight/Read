@@ -9,6 +9,28 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.6.0',
+    date: '2026-05-08',
+    changes: [
+      { type: 'improve', text: '排除 @napi-rs/canvas 无用原生模块，安装包减少约 37MB' },
+      { type: 'improve', text: 'TXT 渲染器使用 useMemo 缓存解码结果，避免每次渲染重复解码' },
+      { type: 'improve', text: 'TXT/EPUB 滚动保存进度添加 500ms 节流，减少 IPC 调用频率' },
+      { type: 'improve', text: 'PDF 阅读器关闭时正确销毁文档资源，修复内存泄漏' },
+      { type: 'improve', text: '漫画阅读器改为按需加载图片，只保留当前页 ±2 页在内存中' },
+      { type: 'improve', text: 'JSZip 改为动态导入，减少主包体积' },
+      { type: 'improve', text: '阅读器主组件使用 Zustand selector 精确订阅，减少每秒不必要的全量重渲染' },
+      { type: 'improve', text: '书架列表过滤和排序使用 useMemo 缓存，避免重复计算' },
+      { type: 'improve', text: '数据库写入改为 300ms 防抖批量写入，减少磁盘 IO' },
+      { type: 'improve', text: '自动清理超过 90 天的已结束阅读会话记录' },
+      { type: 'fix', text: '修复 EPUB 高亮标注重复添加的问题' },
+      { type: 'fix', text: '修复亮色模式下多个界面文字不可见的问题' },
+      { type: 'fix', text: '修复亮色模式下阅读器侧边栏、设置面板颜色异常' },
+      { type: 'fix', text: 'Z-Library 改为全屏独立页面，提升浏览体验' },
+      { type: 'feature', text: '支持鼠标滚轮翻页（EPUB、PDF、CBZ/CBR 格式），滚动间隔 200ms 防抖' },
+      { type: 'feature', text: '书架工具栏新增刷新按钮，可手动刷新书籍列表' },
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-05-08',
     changes: [

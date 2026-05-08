@@ -13,7 +13,6 @@ export default function App() {
   const [currentBookId, setCurrentBookId] = useState<number | null>(null)
   const [page, setPage] = useState<Page>('library')
   const theme = useSettingsStore((s) => s.theme)
-  const books = useLibraryStore((s) => s.books)
   const loadBooks = useLibraryStore((s) => s.loadBooks)
 
   useEffect(() => {

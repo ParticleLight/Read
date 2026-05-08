@@ -203,6 +203,15 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
     const rendition = renditionRef.current
     if (!rendition || !isReady) return
 
+    // Clear all existing highlights first to avoid duplicates
+    for (const hl of highlights) {
+      if (hl.cfi) {
+        try {
+          rendition.annotations.remove(hl.cfi, 'highlight')
+        } catch {}
+      }
+    }
+
     for (const hl of highlights) {
       if (hl.cfi) {
         try {
@@ -313,7 +322,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       {/* Highlight popup - rendered via portal to escape overflow-hidden */}
       {highlightPopup && createPortal(
         <div
-          className="fixed z-[9999] flex items-center gap-2 bg-gray-800 border border-gray-600 rounded-xl px-3 py-2 shadow-xl"
+          className="fixed z-[9999] flex items-center gap-2 bg-[var(--reader-sidebar)] border border-[var(--reader-border)] rounded-xl px-3 py-2 shadow-xl"
           style={{ left: highlightPopup.x, top: highlightPopup.y, transform: 'translate(-50%, -100%)' }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -328,7 +337,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
           ))}
           <button
             onClick={() => setHighlightPopup(null)}
-            className="ml-1 text-gray-400 hover:text-white text-xs"
+            className="ml-1 text-[var(--reader-text)] opacity-50 hover:opacity-100 text-xs"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

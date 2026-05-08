@@ -38,6 +38,18 @@ interface ReaderViewProps {
   onClose: () => void
 }
 
+function ReadingTimeDisplay() {
+  const currentReadingTime = useReaderStore((s) => s.currentReadingTime)
+  return (
+    <span title="本次阅读时长">
+      <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      {formatReadingTime(currentReadingTime)}
+    </span>
+  )
+}
+
 export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const [book, setBook] = useState<any>(null)
   const [bookContent, setBookContent] = useState<Uint8Array | null>(null)
@@ -45,7 +57,24 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const [showArrows, setShowArrows] = useState(false)
   const arrowTimerRef = useRef<number | null>(null)
   const sessionActiveRef = useRef(false)
-  const { showSidebar, showControls, controlsLocked, setShowControls, setShowSidebar, loadProgress, loadBookmarks, loadHighlights, loadNotes, turnPage, progress, saveProgress, setBookId, startReadingSession, endReadingSession, updateReadingTime, currentReadingTime } = useReaderStore()
+
+  const showSidebar = useReaderStore((s) => s.showSidebar)
+  const showControls = useReaderStore((s) => s.showControls)
+  const controlsLocked = useReaderStore((s) => s.controlsLocked)
+  const progress = useReaderStore((s) => s.progress)
+  const setShowControls = useReaderStore((s) => s.setShowControls)
+  const setShowSidebar = useReaderStore((s) => s.setShowSidebar)
+  const loadProgress = useReaderStore((s) => s.loadProgress)
+  const loadBookmarks = useReaderStore((s) => s.loadBookmarks)
+  const loadHighlights = useReaderStore((s) => s.loadHighlights)
+  const loadNotes = useReaderStore((s) => s.loadNotes)
+  const turnPage = useReaderStore((s) => s.turnPage)
+  const saveProgress = useReaderStore((s) => s.saveProgress)
+  const setBookId = useReaderStore((s) => s.setBookId)
+  const startReadingSession = useReaderStore((s) => s.startReadingSession)
+  const endReadingSession = useReaderStore((s) => s.endReadingSession)
+  const updateReadingTime = useReaderStore((s) => s.updateReadingTime)
+
   const { loadBookSettings, clearBookSettings } = useSettingsStore()
   const { shouldRender: renderSidebar, isClosing: sidebarClosing } = useAnimatedMount(showSidebar, 200)
   const { shouldRender: renderSettings, isClosing: settingsClosing } = useAnimatedMount(showSettings, 200)
@@ -121,6 +150,32 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
+
+  // Mouse wheel page turning for paginated formats
+  useEffect(() => {
+    if (!book) return
+    const isPaginated = ['epub', 'pdf', 'cbz', 'cbr'].includes(book.format)
+    if (!isPaginated) return
+
+    let wheelTimer: ReturnType<typeof setTimeout> | null = null
+    const handleWheel = (e: WheelEvent) => {
+      // Don't intercept Ctrl+Wheel (used for zoom in PDF)
+      if (e.ctrlKey) return
+
+      e.preventDefault()
+      if (wheelTimer) return
+      wheelTimer = setTimeout(() => { wheelTimer = null }, 200)
+
+      if (e.deltaY > 0) turnPage(1)
+      else if (e.deltaY < 0) turnPage(-1)
+    }
+
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      window.removeEventListener('wheel', handleWheel)
+      if (wheelTimer) clearTimeout(wheelTimer)
+    }
+  }, [book, turnPage])
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -234,12 +289,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
         <div className="absolute bottom-3 right-3 z-10 bg-black/40 backdrop-blur-sm text-white/70 text-xs px-3 py-1.5 rounded-full flex items-center gap-3">
           <span>{progress.page != null ? `第 ${progress.page} 页` : `${Math.round(progress.progress || 0)}%`}</span>
           <span className="opacity-70">|</span>
-          <span title="本次阅读时长">
-            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            {formatReadingTime(currentReadingTime)}
-          </span>
+          <ReadingTimeDisplay />
         </div>
       </div>
 

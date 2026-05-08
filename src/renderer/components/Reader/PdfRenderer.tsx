@@ -48,9 +48,12 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
     clearSeekTarget()
   }, [seekTarget])
 
+  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
+
   useEffect(() => {
     const loadPdf = async () => {
       const pdf = await pdfjsLib.getDocument({ data: content }).promise
+      pdfDocRef.current = pdf
       setPdfDoc(pdf)
       setTotalPages(pdf.numPages)
 
@@ -58,6 +61,13 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
       setCurrentPage(startPage)
     }
     loadPdf()
+
+    return () => {
+      if (pdfDocRef.current) {
+        pdfDocRef.current.destroy()
+        pdfDocRef.current = null
+      }
+    }
   }, [content])
 
   useEffect(() => {

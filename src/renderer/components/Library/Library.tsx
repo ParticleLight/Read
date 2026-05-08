@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react'
 import { useLibraryStore } from '../../stores/libraryStore'
 import { BookGrid } from './BookGrid'
 import { BookList } from './BookList'
@@ -28,21 +28,22 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
     loadReadingProgress()
   }, [])
 
-  const filteredBooks = books.filter((book) => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return safeText(book.title).toLowerCase().includes(q) || safeText(book.author).toLowerCase().includes(q)
-  })
-
-  const sortedBooks = [...filteredBooks].sort((a, b) => {
-    switch (sortBy) {
-      case 'title': return safeText(a.title).localeCompare(safeText(b.title))
-      case 'author': return safeText(a.author).localeCompare(safeText(b.author))
-      case 'added_at': return new Date(b.added_at).getTime() - new Date(a.added_at).getTime()
-      case 'last_opened': return new Date(b.last_opened || 0).getTime() - new Date(a.last_opened || 0).getTime()
-      default: return 0
-    }
-  })
+  const sortedBooks = useMemo(() => {
+    const filtered = books.filter((book) => {
+      if (!searchQuery) return true
+      const q = searchQuery.toLowerCase()
+      return safeText(book.title).toLowerCase().includes(q) || safeText(book.author).toLowerCase().includes(q)
+    })
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'title': return safeText(a.title).localeCompare(safeText(b.title))
+        case 'author': return safeText(a.author).localeCompare(safeText(b.author))
+        case 'added_at': return new Date(b.added_at).getTime() - new Date(a.added_at).getTime()
+        case 'last_opened': return new Date(b.last_opened || 0).getTime() - new Date(a.last_opened || 0).getTime()
+        default: return 0
+      }
+    })
+  }, [books, searchQuery, sortBy])
 
   const handleImport = useCallback(async () => {
     const filePath = await window.electronAPI.openFile()
@@ -163,6 +164,17 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             导入
+          </button>
+
+          {/* Refresh */}
+          <button
+            onClick={() => loadBooks()}
+            className="p-2 text-[var(--reader-text)] opacity-60 hover:opacity-100 rounded-lg hover:bg-[var(--reader-sidebar)] transition-colors"
+            title="刷新书架"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
           </button>
 
           {/* Statistics */}

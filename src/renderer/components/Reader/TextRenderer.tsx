@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useMemo } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 
@@ -10,7 +10,7 @@ interface TextRendererProps {
 
 export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const text = new TextDecoder('utf-8').decode(content)
+  const text = useMemo(() => new TextDecoder('utf-8').decode(content), [content])
 
   const { progress, setProgress, saveProgress, setTableOfContents, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
 
@@ -50,12 +50,14 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
     if (!containerRef.current) return
     const container = containerRef.current
 
+    let saveTimer: ReturnType<typeof setTimeout> | null = null
     const handleScroll = () => {
       const scrollTop = container.scrollTop
       const scrollHeight = container.scrollHeight - container.clientHeight
       const progressPercent = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0
       setProgress({ progress: progressPercent, scrollPosition: scrollTop })
-      saveProgress()
+      if (saveTimer) clearTimeout(saveTimer)
+      saveTimer = setTimeout(() => saveProgress(), 500)
     }
 
     container.addEventListener('scroll', handleScroll)
@@ -64,7 +66,10 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
       container.scrollTop = progress.scrollPosition
     }
 
-    return () => container.removeEventListener('scroll', handleScroll)
+    return () => {
+      container.removeEventListener('scroll', handleScroll)
+      if (saveTimer) clearTimeout(saveTimer)
+    }
   }, [text])
 
   return (
