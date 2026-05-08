@@ -5,10 +5,10 @@ interface ChangelogPanelProps {
   isClosing: boolean
 }
 
-const typeLabels: Record<string, { label: string; color: string }> = {
-  feature: { label: '新功能', color: 'bg-green-500/20 text-green-400' },
-  fix: { label: '修复', color: 'bg-red-500/20 text-red-400' },
-  improve: { label: '优化', color: 'bg-blue-500/20 text-blue-400' },
+const typeLabels: Record<string, { label: string; style: React.CSSProperties }> = {
+  feature: { label: '新功能', style: { color: 'var(--color-green)', backgroundColor: 'var(--color-green-bg)' } },
+  fix: { label: '修复', style: { color: 'var(--color-red)', backgroundColor: 'var(--color-red-bg)' } },
+  improve: { label: '优化', style: { color: 'var(--color-indigo)', backgroundColor: 'var(--color-indigo-bg)' } },
 }
 
 export function ChangelogPanel({ onClose, isClosing }: ChangelogPanelProps) {
@@ -20,14 +20,14 @@ export function ChangelogPanel({ onClose, isClosing }: ChangelogPanelProps) {
         style={{ backgroundColor: 'var(--reader-sidebar, #1e1e2e)' }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: 'var(--reader-border)' }}>
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--color-indigo)' }}>
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span className="text-lg font-semibold text-white">更新日志</span>
+            <span className="text-lg font-semibold" style={{ color: 'var(--reader-text)' }}>更新日志</span>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-white/10 text-white/60 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1 rounded-lg transition-colors" style={{ color: 'var(--reader-text)', opacity: 0.6 }}>
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -37,18 +37,18 @@ export function ChangelogPanel({ onClose, isClosing }: ChangelogPanelProps) {
         {/* Content */}
         <div className="overflow-y-auto max-h-[calc(80vh-64px)] px-6 py-4">
           {changelog.map((entry, i) => (
-            <div key={entry.version} className={i < changelog.length - 1 ? 'mb-6 pb-6 border-b border-white/10' : ''}>
+            <div key={entry.version} className={i < changelog.length - 1 ? 'mb-6 pb-6 border-b' : ''} style={i < changelog.length - 1 ? { borderColor: 'var(--reader-border)' } : undefined}>
               <div className="flex items-center gap-3 mb-3">
-                <span className="text-base font-semibold text-white">v{entry.version}</span>
-                <span className="text-xs text-white/40">{entry.date}</span>
+                <span className="text-base font-semibold" style={{ color: 'var(--reader-text)' }}>v{entry.version}</span>
+                <span className="text-xs" style={{ color: 'var(--reader-text)', opacity: 0.4 }}>{entry.date}</span>
               </div>
               <div className="space-y-2">
                 {entry.changes.map((change, j) => (
                   <div key={j} className="flex items-start gap-2">
-                    <span className={`flex-shrink-0 mt-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded ${typeLabels[change.type]?.color || 'bg-gray-500/20 text-gray-400'}`}>
+                    <span className="flex-shrink-0 mt-0.5 px-1.5 py-0.5 text-[10px] font-medium rounded" style={typeLabels[change.type]?.style || { color: 'var(--reader-text)', opacity: 0.5 }}>
                       {typeLabels[change.type]?.label || change.type}
                     </span>
-                    <span className="text-sm text-white/80">{change.text}</span>
+                    <span className="text-sm" style={{ color: 'var(--reader-text)', opacity: 0.8 }}>{change.text}</span>
                   </div>
                 ))}
               </div>

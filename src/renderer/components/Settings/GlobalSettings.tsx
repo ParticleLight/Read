@@ -196,8 +196,8 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
             <h2 className="text-lg font-semibold text-[var(--reader-text)] mb-4">关于</h2>
             <div className="bg-[var(--reader-sidebar)] rounded-xl border border-[var(--reader-border)] p-6">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-xl bg-indigo-500/20 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center" style={{ backgroundColor: 'var(--color-indigo-bg)' }}>
+                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ color: 'var(--color-indigo)' }}>
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                   </svg>
                 </div>
@@ -214,7 +214,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
               </p>
               <div className="flex flex-wrap gap-2 mt-4">
                 {['EPUB', 'PDF', 'MOBI', 'TXT', 'FB2', 'CBZ/CBR', 'HTML', 'Markdown'].map((fmt) => (
-                  <span key={fmt} className="px-2 py-1 text-xs bg-indigo-500/10 text-indigo-400 rounded-md">{fmt}</span>
+                  <span key={fmt} className="px-2 py-1 text-xs rounded-md" style={{ color: 'var(--color-indigo)', backgroundColor: 'var(--color-indigo-bg)' }}>{fmt}</span>
                 ))}
               </div>
             </div>

@@ -145,11 +145,17 @@ export function ZLibraryView({ onBack }: ZLibraryViewProps) {
 
       {/* Download notification */}
       {notification && (
-        <div className={`px-4 py-2 text-sm flex-shrink-0 ${
-          notification.type === 'error' ? 'bg-red-500/20 text-red-300' :
-          notification.type === 'import' ? 'bg-green-500/20 text-green-300' :
-          'bg-indigo-500/20 text-indigo-300'
-        }`}>
+        <div
+          className="px-4 py-2 text-sm flex-shrink-0"
+          style={{
+            color: notification.type === 'error' ? 'var(--notify-error-text)' :
+                   notification.type === 'import' ? 'var(--notify-success-text)' :
+                   'var(--notify-info-text)',
+            backgroundColor: notification.type === 'error' ? 'var(--notify-error-bg)' :
+                             notification.type === 'import' ? 'var(--notify-success-bg)' :
+                             'var(--notify-info-bg)',
+          }}
+        >
           {notification.message}
         </div>
       )}

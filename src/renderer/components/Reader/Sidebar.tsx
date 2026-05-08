@@ -48,7 +48,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
               className={`p-2 rounded-lg text-xs font-medium transition-colors ${
                 sidebarTab === tab.id
                   ? 'bg-[var(--reader-accent)] text-white'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700/50'
+                  : 'text-[var(--reader-text)] opacity-50 hover:opacity-80 hover:bg-[var(--reader-border)]'
               }`}
               title={tab.label}
             >
@@ -58,7 +58,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
             </button>
           ))}
         </div>
-        <button onClick={() => setShowSidebar(false)} className="p-1 text-gray-500 hover:text-gray-300">
+        <button onClick={() => setShowSidebar(false)} className="p-1 text-[var(--reader-text)] opacity-50 hover:opacity-80">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -70,7 +70,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
         {sidebarTab === 'toc' && (
           <div className="space-y-1">
             {tableOfContents.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">无目录信息</p>
+              <p className="text-sm text-[var(--reader-text)] opacity-50 text-center py-4">无目录信息</p>
             ) : (
               tableOfContents.map((item: any, i: number) => (
                 <button
@@ -82,7 +82,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                       navigateTo({ cfi: item.id })
                     }
                   }}
-                  className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-gray-700/50 text-gray-300 transition-colors"
+                  className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--reader-border)] text-[var(--reader-text)] opacity-80 hover:opacity-100 transition-colors"
                   style={{ paddingLeft: `${(item.level || 1) * 12}px` }}
                 >
                   {item.label || item.title || `章节 ${i + 1}`}
@@ -95,15 +95,15 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
         {sidebarTab === 'bookmarks' && (
           <div className="space-y-2">
             {bookmarks.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">暂无书签</p>
+              <p className="text-sm text-[var(--reader-text)] opacity-50 text-center py-4">暂无书签</p>
             ) : (
               bookmarks.map((bm) => (
                 <div
                   key={bm.id}
-                  className="group flex items-start gap-2 p-2 rounded-lg hover:bg-gray-700/50 cursor-pointer"
+                  className="group flex items-start gap-2 p-2 rounded-lg hover:bg-[var(--reader-border)] cursor-pointer"
                   onClick={() => { if (editingBookmarkId !== bm.id) navigateTo({ page: bm.page, cfi: bm.cfi }) }}
                 >
-                  <svg className="w-4 h-4 text-yellow-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--color-yellow)' }}>
                     <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                   </svg>
                   <div className="flex-1 min-w-0">
@@ -118,12 +118,12 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                         }}
                         onBlur={handleSaveBookmark}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full px-1 py-0.5 text-sm bg-gray-800 border border-gray-600 rounded text-gray-200 focus:outline-none focus:border-indigo-500"
+                        className="w-full px-1 py-0.5 text-sm bg-[var(--reader-bg)] border border-[var(--reader-border)] rounded text-[var(--reader-text)] focus:outline-none focus:border-[var(--reader-accent)]"
                       />
                     ) : (
                       <>
                         <p
-                          className="text-sm text-gray-300 truncate cursor-pointer hover:text-white"
+                          className="text-sm text-[var(--reader-text)] opacity-80 truncate cursor-pointer hover:opacity-100"
                           onDoubleClick={(e) => {
                             e.stopPropagation()
                             setEditingBookmarkId(bm.id)
@@ -134,9 +134,9 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                           {bm.title || '书签'}
                         </p>
                         <div className="flex items-center justify-between">
-                          <p className="text-xs text-gray-500">{new Date(bm.created_at).toLocaleString('zh-CN')}</p>
+                          <p className="text-xs text-[var(--reader-text)] opacity-40">{new Date(bm.created_at).toLocaleString('zh-CN')}</p>
                           {bm.progress != null && (
-                            <p className="text-xs text-gray-500">{bm.progress.toFixed(1)}%</p>
+                            <p className="text-xs text-[var(--reader-text)] opacity-40">{bm.progress.toFixed(1)}%</p>
                           )}
                         </div>
                       </>
@@ -148,7 +148,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                       setEditingBookmarkId(bm.id)
                       setEditingBookmarkTitle(bm.title || '')
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-blue-400"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-[var(--reader-text)] opacity-40 hover:opacity-80"
                     title="重命名"
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -157,7 +157,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); removeBookmark(bm.id) }}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-[var(--reader-text)] opacity-40 hover:opacity-80"
                     title="删除"
                   >
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -173,19 +173,19 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
         {sidebarTab === 'highlights' && (
           <div className="space-y-2">
             {highlights.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">暂无高亮</p>
+              <p className="text-sm text-[var(--reader-text)] opacity-50 text-center py-4">暂无高亮</p>
             ) : (
               highlights.map((hl) => (
-                <div key={hl.id} className="group p-2 rounded-lg hover:bg-gray-700/50 cursor-pointer" onClick={() => navigateTo({ page: hl.page, cfi: hl.cfi })}>
+                <div key={hl.id} className="group p-2 rounded-lg hover:bg-[var(--reader-border)] cursor-pointer" onClick={() => navigateTo({ page: hl.page, cfi: hl.cfi })}>
                   <div className="flex items-start gap-2">
                     <div className="w-3 h-3 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: hl.color }} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-gray-300 line-clamp-3">{hl.text}</p>
-                      {hl.note && <p className="text-xs text-gray-500 mt-1">{hl.note}</p>}
+                      <p className="text-sm text-[var(--reader-text)] opacity-80 line-clamp-3">{hl.text}</p>
+                      {hl.note && <p className="text-xs text-[var(--reader-text)] opacity-40 mt-1">{hl.note}</p>}
                     </div>
                     <button
                       onClick={() => removeHighlight(hl.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--reader-text)] opacity-40 hover:opacity-80"
                     >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -213,7 +213,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                   }
                 }}
                 placeholder="添加笔记..."
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                className="flex-1 px-3 py-2 bg-[var(--reader-bg)] border border-[var(--reader-border)] rounded-lg text-sm text-[var(--reader-text)] placeholder-gray-500 focus:outline-none focus:border-[var(--reader-accent)]"
               />
               <button
                 onClick={() => {
@@ -222,22 +222,23 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                     setNewNote('')
                   }
                 }}
-                className="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm rounded-lg"
+                className="px-3 py-2 text-white text-sm rounded-lg"
+                style={{ backgroundColor: 'var(--reader-accent)' }}
               >
                 添加
               </button>
             </div>
             {notes.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-4">暂无笔记</p>
+              <p className="text-sm text-[var(--reader-text)] opacity-50 text-center py-4">暂无笔记</p>
             ) : (
               notes.map((note) => (
-                <div key={note.id} className="group p-3 rounded-lg hover:bg-gray-700/50 cursor-pointer" onClick={() => navigateTo({ page: note.page, cfi: note.cfi })}>
-                  <p className="text-sm text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                <div key={note.id} className="group p-3 rounded-lg hover:bg-[var(--reader-border)] cursor-pointer" onClick={() => navigateTo({ page: note.page, cfi: note.cfi })}>
+                  <p className="text-sm text-[var(--reader-text)] opacity-80 whitespace-pre-wrap">{note.content}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs text-gray-500">{new Date(note.updated_at).toLocaleString('zh-CN')}</p>
+                    <p className="text-xs text-[var(--reader-text)] opacity-40">{new Date(note.updated_at).toLocaleString('zh-CN')}</p>
                     <button
                       onClick={() => removeNote(note.id)}
-                      className="opacity-0 group-hover:opacity-100 p-1 text-gray-500 hover:text-red-400"
+                      className="opacity-0 group-hover:opacity-100 p-1 text-[var(--reader-text)] opacity-40 hover:opacity-80"
                     >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

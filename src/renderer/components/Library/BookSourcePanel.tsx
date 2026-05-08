@@ -93,9 +93,10 @@ export function BookSourcePanel({ onClose, isClosing }: BookSourcePanelProps) {
             onClick={() => setTab('search')}
             className={`px-6 py-3 text-sm font-medium transition-colors ${
               tab === 'search'
-                ? 'text-indigo-400 border-b-2 border-indigo-400'
+                ? 'border-b-2'
                 : 'text-[var(--reader-text)] opacity-50 hover:opacity-80'
             }`}
+            style={tab === 'search' ? { color: 'var(--color-indigo)', borderColor: 'var(--color-indigo)' } : undefined}
           >
             搜索
           </button>
@@ -103,9 +104,10 @@ export function BookSourcePanel({ onClose, isClosing }: BookSourcePanelProps) {
             onClick={() => setTab('sources')}
             className={`px-6 py-3 text-sm font-medium transition-colors ${
               tab === 'sources'
-                ? 'text-indigo-400 border-b-2 border-indigo-400'
+                ? 'border-b-2'
                 : 'text-[var(--reader-text)] opacity-50 hover:opacity-80'
             }`}
+            style={tab === 'sources' ? { color: 'var(--color-indigo)', borderColor: 'var(--color-indigo)' } : undefined}
           >
             源管理 ({sources.length})
           </button>
@@ -152,7 +154,7 @@ export function BookSourcePanel({ onClose, isClosing }: BookSourcePanelProps) {
                     </div>
                   )}
                   {downloadProgress.status === 'done' && (
-                    <p className="text-sm text-green-400 mt-1">已成功导入书架</p>
+                    <p className="text-sm mt-1" style={{ color: 'var(--color-green)' }}>已成功导入书架</p>
                   )}
                 </div>
               )}
@@ -211,8 +213,8 @@ export function BookSourcePanel({ onClose, isClosing }: BookSourcePanelProps) {
                 <div className="text-center py-12 text-[var(--reader-text)] opacity-40">
                   {searchError ? (
                     <div className="text-left max-w-lg mx-auto">
-                      <p className="text-red-400 font-medium mb-2">搜索出错</p>
-                      <pre className="text-xs text-left whitespace-pre-wrap bg-[var(--reader-sidebar)] rounded-lg p-4 border border-[var(--reader-border)] text-red-300/80">
+                      <p className="font-medium mb-2" style={{ color: 'var(--color-red)' }}>搜索出错</p>
+                      <pre className="text-xs text-left whitespace-pre-wrap bg-[var(--reader-sidebar)] rounded-lg p-4 border border-[var(--reader-border)]" style={{ color: 'var(--color-red)', opacity: 0.8 }}>
                         {searchError}
                       </pre>
                     </div>
@@ -246,7 +248,8 @@ export function BookSourcePanel({ onClose, isClosing }: BookSourcePanelProps) {
                     onClick={() => {
                       if (confirm('确定清空所有书源？此操作不可撤销。')) clearAllSources()
                     }}
-                    className="px-3 py-1.5 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
+                    className="px-3 py-1.5 text-xs rounded-lg transition-colors"
+                    style={{ color: 'var(--color-red)' }}
                   >
                     全部清空
                   </button>
@@ -293,16 +296,18 @@ export function BookSourcePanel({ onClose, isClosing }: BookSourcePanelProps) {
                     {/* Status */}
                     <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${
                       source.enabled
-                        ? 'bg-green-500/10 text-green-400'
+                        ? ''
                         : 'bg-[var(--reader-border)] text-[var(--reader-text)] opacity-40'
-                    }`}>
+                    }`}
+                    style={source.enabled ? { color: 'var(--color-green)', backgroundColor: 'var(--color-green-bg)' } : undefined}
+                    >
                       {source.enabled ? '启用' : '禁用'}
                     </span>
 
                     {/* Delete */}
                     <button
                       onClick={() => deleteSource(source.id)}
-                      className="p-1.5 rounded-lg text-[var(--reader-text)] opacity-40 hover:opacity-100 hover:bg-red-500/10 hover:text-red-400 transition-colors flex-shrink-0"
+                      className="p-1.5 rounded-lg text-[var(--reader-text)] opacity-40 hover:opacity-100 transition-colors flex-shrink-0"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

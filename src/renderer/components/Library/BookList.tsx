@@ -75,11 +75,12 @@ export function BookList({ books, onOpenBook }: BookListProps) {
               onClick={(e) => handleDelete(e, book.id)}
               className={`p-1.5 rounded-lg transition-colors ${
                 activeShelfId != null
-                  ? 'opacity-0 group-hover:opacity-100 text-orange-400 hover:text-orange-300 hover:bg-[var(--reader-sidebar)]'
+                  ? 'opacity-0 group-hover:opacity-100 hover:bg-[var(--reader-sidebar)]'
                   : confirmId === book.id
                     ? 'bg-red-600 text-white'
-                    : 'opacity-0 group-hover:opacity-100 text-[var(--reader-text)] opacity-60 hover:text-red-400 hover:bg-[var(--reader-sidebar)]'
+                    : 'opacity-0 group-hover:opacity-100 text-[var(--reader-text)] opacity-60 hover:bg-[var(--reader-sidebar)]'
               }`}
+              style={activeShelfId != null ? { color: 'var(--color-orange)' } : undefined}
               title={activeShelfId != null ? '从书柜移除' : confirmId === book.id ? '再次点击确认删除' : '删除'}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

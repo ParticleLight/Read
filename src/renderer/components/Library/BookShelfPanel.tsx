@@ -183,7 +183,8 @@ export function BookShelfPanel({ onOpenBookSource, onOpenZLibrary }: BookShelfPa
             </button>
             <button
               onClick={() => { deleteBookshelf(contextMenu.id); setContextMenu(null) }}
-              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[var(--reader-border)]"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--reader-border)]"
+              style={{ color: 'var(--color-red)' }}
             >
               删除
             </button>

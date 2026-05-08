@@ -196,14 +196,16 @@ export function BookCard({ book, onOpen, onDelete, onRemoveFromShelf, activeShel
           {activeShelfId != null && onRemoveFromShelf ? (
             <button
               onClick={(e) => { e.stopPropagation(); onRemoveFromShelf(book.id); setShowMenu(false) }}
-              className="w-full text-left px-4 py-2 text-sm text-orange-400 hover:bg-[var(--reader-border)]"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--reader-border)]"
+              style={{ color: 'var(--color-orange)' }}
             >
               从书柜移除
             </button>
           ) : !confirmDelete ? (
             <button
               onClick={(e) => { e.stopPropagation(); setConfirmDelete(true) }}
-              className="w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-[var(--reader-border)]"
+              className="w-full text-left px-4 py-2 text-sm hover:bg-[var(--reader-border)]"
+              style={{ color: 'var(--color-red)' }}
             >
               删除
             </button>
