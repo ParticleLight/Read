@@ -2,6 +2,11 @@
   "name": "particle-book",
   "version": "1.8.0",
   "description": "ParticleBook - 内置 Z-Library 的全功能电子书阅读器",
+  "author": "ParticleLight",
+  "contributors": [
+    "ParticleLight",
+    "Claude <noreply@anthropic.com> (https://claude.ai)"
+  ],
   "main": "out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",
