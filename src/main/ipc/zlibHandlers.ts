@@ -1,9 +1,9 @@
-import { ipcMain, BrowserWindow } from 'electron'
+import { ipcMain, BrowserWindow, Menu, MenuItem } from 'electron'
 import { ZLibraryService } from '../services/zlibrary'
 
 export function registerZlibHandlers(zlibService: ZLibraryService, mainWindow: BrowserWindow) {
-  ipcMain.handle('zlib:show', () => {
-    try { zlibService.show(mainWindow) } catch {}
+  ipcMain.handle('zlib:show', async () => {
+    try { await zlibService.show(mainWindow) } catch {}
   })
 
   ipcMain.handle('zlib:hide', () => {
@@ -30,5 +30,29 @@ export function registerZlibHandlers(zlibService: ZLibraryService, mainWindow: B
 
   ipcMain.handle('zlib:logout', async () => {
     try { await zlibService.logout() } catch {}
+  })
+
+  ipcMain.handle('zlib:switchMirror', (_event, index: number) => {
+    try { zlibService.switchMirror(index) } catch {}
+  })
+
+  ipcMain.handle('zlib:getMirrorInfo', () => {
+    try { return zlibService.getMirrorInfo() } catch { return { index: 0, url: '', mirrors: [] } }
+  })
+
+  ipcMain.handle('zlib:showMirrorMenu', () => {
+    try {
+      const info = zlibService.getMirrorInfo()
+      const menu = new Menu()
+      info.mirrors.forEach((url, i) => {
+        menu.append(new MenuItem({
+          label: url.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+          type: 'radio',
+          checked: i === info.index,
+          click: () => zlibService.switchMirror(i),
+        }))
+      })
+      menu.popup({ window: mainWindow })
+    } catch {}
   })
 }

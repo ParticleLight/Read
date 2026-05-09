@@ -137,6 +137,15 @@ export function ZLibraryView({ onBack }: ZLibraryViewProps) {
             </svg>
           </button>
           <button
+            onClick={() => window.electronAPI.zlibShowMirrorMenu()}
+            className="p-2 rounded-lg text-[var(--reader-text)] opacity-60 hover:opacity-100 hover:bg-[var(--reader-sidebar)] transition-colors"
+            title="切换线路"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+          </button>
+          <button
             onClick={async () => { await window.electronAPI.zlibLogout(); window.electronAPI.zlibNavigate('reload') }}
             className="p-2 rounded-lg text-[var(--reader-text)] opacity-60 hover:opacity-100 hover:bg-[var(--reader-sidebar)] transition-colors"
             title="退出登录"

@@ -68,12 +68,16 @@ interface ElectronAPI {
   zlibGetURL: () => Promise<string>
   zlibSetBounds: (bounds: { x: number; y: number; width: number; height: number }) => Promise<void>
   zlibLogout: () => Promise<void>
+  zlibSwitchMirror: (index: number) => Promise<void>
+  zlibGetMirrorInfo: () => Promise<{ index: number; url: string; mirrors: string[] }>
+  zlibShowMirrorMenu: () => Promise<void>
   onZlibDownloadProgress: (callback: (progress: any) => void) => () => void
   onZlibDownloadComplete: (callback: (data: any) => void) => () => void
   onZlibImportComplete: (callback: (data: any) => void) => () => void
   onZlibImportError: (callback: (data: any) => void) => () => void
   onZlibUrlChanged: (callback: (url: string) => void) => () => void
   onZlibTitleChanged: (callback: (title: string) => void) => () => void
+  onZlibMirrorChanged: (callback: (info: { index: number; url: string; mirrors: string[] }) => void) => () => void
 
   // Reading Sessions
   startReadingSession: (bookId: number) => Promise<number>

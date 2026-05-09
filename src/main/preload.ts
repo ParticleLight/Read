@@ -161,6 +161,9 @@ const api: ElectronAPI = {
   zlibGetURL: () => ipcRenderer.invoke('zlib:getURL'),
   zlibSetBounds: (bounds) => ipcRenderer.invoke('zlib:setBounds', bounds),
   zlibLogout: () => ipcRenderer.invoke('zlib:logout'),
+  zlibSwitchMirror: (index: number) => ipcRenderer.invoke('zlib:switchMirror', index),
+  zlibGetMirrorInfo: () => ipcRenderer.invoke('zlib:getMirrorInfo'),
+  zlibShowMirrorMenu: () => ipcRenderer.invoke('zlib:showMirrorMenu'),
   onZlibDownloadProgress: (callback) => {
     const handler = (_event: any, progress: any) => callback(progress)
     ipcRenderer.on('zlib:downloadProgress', handler)
@@ -190,6 +193,11 @@ const api: ElectronAPI = {
     const handler = (_event: any, title: string) => callback(title)
     ipcRenderer.on('zlib:titleChanged', handler)
     return () => ipcRenderer.removeListener('zlib:titleChanged', handler)
+  },
+  onZlibMirrorChanged: (callback) => {
+    const handler = (_event: any, info: any) => callback(info)
+    ipcRenderer.on('zlib:mirrorChanged', handler)
+    return () => ipcRenderer.removeListener('zlib:mirrorChanged', handler)
   },
 
   startReadingSession: (bookId) => ipcRenderer.invoke('db:startReadingSession', bookId),
