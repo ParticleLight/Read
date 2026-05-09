@@ -10,7 +10,7 @@ interface HtmlRendererProps {
   bookId: number
 }
 
-const md = new MarkdownIt({ html: true, linkify: true, typographer: true })
+const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 
 export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
   const [htmlContent, setHtmlContent] = useState('')

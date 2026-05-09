@@ -162,6 +162,7 @@ const defaultData: DBData = {
 export class DatabaseService {
   private db: Low<DBData>
   private writeTimer: ReturnType<typeof setTimeout> | null = null
+  private ready: Promise<void>
 
   constructor() {
     const dbDir = join(app.getPath('userData'), 'data')
@@ -170,7 +171,7 @@ export class DatabaseService {
 
     const adapter = new JSONFile<DBData>(dbPath)
     this.db = new Low<DBData>(adapter, defaultData)
-    this.db.read().then(() => {
+    this.ready = this.db.read().then(() => {
       // Initialize missing fields for older database files
       if (!this.db.data.bookshelves) this.db.data.bookshelves = []
       if (!this.db.data.bookshelf_books) this.db.data.bookshelf_books = []
@@ -178,15 +179,19 @@ export class DatabaseService {
       if (!this.db.data.book_settings) this.db.data.book_settings = {}
       if (!this.db.data.book_sources) this.db.data.book_sources = []
       this.cleanupOldSessions()
-      this.db.write()
+      return this.db.write()
     })
+  }
+
+  async ensureReady(): Promise<void> {
+    await this.ready
   }
 
   private scheduleWrite(): void {
     if (this.writeTimer) clearTimeout(this.writeTimer)
-    this.writeTimer = setTimeout(() => {
+    this.writeTimer = setTimeout(async () => {
       this.writeTimer = null
-      this.scheduleWrite()
+      await this.db.write()
     }, 300)
   }
 
@@ -194,8 +199,8 @@ export class DatabaseService {
     if (this.writeTimer) {
       clearTimeout(this.writeTimer)
       this.writeTimer = null
-      this.scheduleWrite()
     }
+    this.db.write()
   }
 
   private cleanupOldSessions(): void {

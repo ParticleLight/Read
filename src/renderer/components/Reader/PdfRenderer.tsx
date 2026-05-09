@@ -54,6 +54,9 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
         pdfDocRef.current.destroy()
         pdfDocRef.current = null
       }
+      canvasRefs.current.clear()
+      renderedPages.current.clear()
+      renderingPages.current.clear()
     }
   }, [content])
 

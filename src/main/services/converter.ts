@@ -1,9 +1,9 @@
-import { exec } from 'child_process'
+import { execFile } from 'child_process'
 import { existsSync } from 'fs'
 import { join, dirname, basename, extname } from 'path'
 import { promisify } from 'util'
 
-const execAsync = promisify(exec)
+const execFileAsync = promisify(execFile)
 
 export class ConverterService {
   async convertMobiToEpub(mobiPath: string): Promise<string | null> {
@@ -14,7 +14,7 @@ export class ConverterService {
     if (existsSync(epubPath)) return epubPath
 
     try {
-      await execAsync(`ebook-convert "${mobiPath}" "${epubPath}"`)
+      await execFileAsync('ebook-convert', [mobiPath, epubPath])
       if (existsSync(epubPath)) return epubPath
     } catch (e) {
       console.error('Calibre conversion failed:', e)
@@ -25,8 +25,8 @@ export class ConverterService {
 
   isCalibreInstalled(): boolean {
     try {
-      const { execSync } = require('child_process')
-      execSync('ebook-convert --version', { stdio: 'ignore' })
+      const { execFileSync } = require('child_process')
+      execFileSync('ebook-convert', ['--version'], { stdio: 'ignore' })
       return true
     } catch {
       return false

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
 export interface Bookmark {
   id: number
   book_id: number
@@ -58,7 +60,7 @@ export interface ReaderState {
 
   setBookId: (id: number | null) => void
   setProgress: (progress: ReadingProgress) => void
-  saveProgress: () => Promise<void>
+  saveProgress: () => void
   loadProgress: (bookId: number) => Promise<void>
   startReadingSession: () => Promise<void>
   endReadingSession: () => Promise<void>
@@ -124,14 +126,21 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
 
   setProgress: (progress) => set({ progress }),
 
-  saveProgress: async () => {
-    const { bookId, progress } = get()
+  saveProgress: () => {
+    const { bookId } = get()
     if (bookId === null) return
-    try {
-      await window.electronAPI.updateReadingProgress(bookId, progress)
-    } catch (e) {
-      console.error('Failed to save progress:', e)
-    }
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(async () => {
+      saveTimer = null
+      try {
+        const { bookId, progress } = get()
+        if (bookId !== null) {
+          await window.electronAPI.updateReadingProgress(bookId, progress)
+        }
+      } catch (e) {
+        console.error('Failed to save progress:', e)
+      }
+    }, 500)
   },
 
   loadProgress: async (bookId: number) => {

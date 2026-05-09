@@ -45,13 +45,21 @@ function createWindow() {
   })
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   db = new DatabaseService()
+  await db.ensureReady()
   library = new LibraryService(db)
 
+  const userDataPath = app.getPath('userData')
   protocol.registerFileProtocol('local-file', (request, callback) => {
     const filePath = decodeURIComponent(request.url.replace('local-file://', ''))
-    callback({ path: filePath })
+    const { resolve } = require('path')
+    const normalizedPath = resolve(filePath)
+    if (!normalizedPath.startsWith(userDataPath)) {
+      callback({ error: -6 })
+      return
+    }
+    callback({ path: normalizedPath })
   })
 
   registerFileHandlers(library)
@@ -97,4 +105,7 @@ process.on('uncaughtException', (err: any) => {
   _origError('Uncaught exception:', err)
 })
 
-process.on('unhandledRejection', noop)
+process.on('unhandledRejection', (reason: any) => {
+  if (isEpipe(reason)) return
+  _origError('Unhandled rejection:', reason)
+})
