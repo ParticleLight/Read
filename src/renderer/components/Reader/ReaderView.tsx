@@ -162,6 +162,10 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       // Don't intercept Ctrl+Wheel (used for zoom in PDF)
       if (e.ctrlKey) return
 
+      // Don't turn pages when sidebar is open
+      const { showSidebar } = useReaderStore.getState()
+      if (showSidebar) return
+
       e.preventDefault()
       if (wheelTimer) return
       wheelTimer = setTimeout(() => { wheelTimer = null }, 200)

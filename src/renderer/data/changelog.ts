@@ -9,6 +9,13 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.2',
+    date: '2026-05-10',
+    changes: [
+      { type: 'fix', text: '修复打开目录/书签侧边栏时滚轮仍触发翻页的问题' },
+    ],
+  },
+  {
     version: '1.8.1',
     date: '2026-05-10',
     changes: [
