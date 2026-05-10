@@ -9,6 +9,18 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.3',
+    date: '2026-05-10',
+    changes: [
+      { type: 'feature', text: '启动时自动检查更新，发现新版本顶部弹出绿色提示条，支持下载和一键重启安装' },
+      { type: 'improve', text: '菜单栏改为中文显示（文件、编辑、视图、帮助）' },
+      { type: 'fix', text: '修复关闭书籍时阅读进度丢失的严重 bug（新增 flushProgress 立即保存机制）' },
+      { type: 'fix', text: '修复书籍加载失败时无限转圈的问题（添加异常处理和自动返回）' },
+      { type: 'fix', text: '修复打开目录/书签侧边栏时滚轮仍触发翻页的问题' },
+      { type: 'fix', text: '修复更新检查重复发送错误事件、阅读会话重复创建等 9 个稳定性 bug' },
+    ],
+  },
+  {
     version: '1.8.2',
     date: '2026-05-10',
     changes: [
