@@ -9,11 +9,17 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
-    version: '1.8.0',
+    version: '1.8.1',
     date: '2026-05-10',
     changes: [
       { type: 'feature', text: '设置→关于新增自动更新功能，支持检查更新、下载、一键重启安装' },
       { type: 'feature', text: '更新通过 GitHub Release 托管，零服务器成本' },
+    ],
+  },
+  {
+    version: '1.8.0',
+    date: '2026-05-10',
+    changes: [
       { type: 'feature', text: 'Z-Library 进入时自动从 z.wwwnav.com 动态获取最新镜像线路，告别手动切换' },
       { type: 'feature', text: 'Z-Library 工具栏新增原生线路选择菜单，支持一键切换镜像' },
       { type: 'improve', text: 'Z-Library 切换线路时重建视图，避免连续加载导致的崩溃' },
