@@ -70,7 +70,7 @@ export function BookList({ books, onOpenBook }: BookListProps) {
             <button
               onClick={(e) => handleDelete(e, book)}
               className={`p-1.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 hover:bg-[var(--reader-sidebar)]`}
-              style={activeShelfId != null ? { color: 'var(--color-orange)' } : { color: 'var(--reader-text)', opacity: 0.6 }}
+              style={activeShelfId != null ? { color: 'var(--color-orange)' } : { color: 'var(--reader-text)' }}
               title={activeShelfId != null ? '从书柜移除' : '删除'}
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

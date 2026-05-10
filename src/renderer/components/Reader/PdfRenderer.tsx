@@ -2,12 +2,13 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import type { Book } from '../../stores/libraryStore'
 
 // Use the worker bundled alongside the renderer output
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('pdf.worker.min.mjs', window.location.href).href
 
 interface PdfRendererProps {
-  book: any
+  book: Book
   content: Uint8Array
   bookId: number
 }
@@ -23,8 +24,17 @@ export function PdfRenderer({ book, content, bookId }: PdfRendererProps) {
   const renderedPages = useRef<Set<number>>(new Set())
   const renderingPages = useRef<Set<number>>(new Set())
 
-  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
-  const { theme } = useSettingsStore()
+  const progress = useReaderStore((s) => s.progress)
+  const setProgress = useReaderStore((s) => s.setProgress)
+  const saveProgress = useReaderStore((s) => s.saveProgress)
+  const navigateTarget = useReaderStore((s) => s.navigateTarget)
+  const clearNavigateTarget = useReaderStore((s) => s.clearNavigateTarget)
+  const turnPageDelta = useReaderStore((s) => s.turnPageDelta)
+  const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
+  const seekTarget = useReaderStore((s) => s.seekTarget)
+  const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
+
+  const theme = useSettingsStore((s) => s.theme)
 
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
 

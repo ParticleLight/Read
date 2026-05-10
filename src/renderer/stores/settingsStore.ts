@@ -8,7 +8,6 @@ export interface SettingsState {
   margin: number
   textAlign: 'left' | 'justify'
 
-  // null = using global settings, number = per-book mode
   activeBookId: number | null
 
   setTheme: (theme: 'light' | 'dark' | 'sepia') => void
@@ -63,42 +62,40 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     const { activeBookId, theme, fontSize, fontFamily, lineHeight, margin, textAlign } = get()
     const settings = { theme, fontSize, fontFamily, lineHeight, margin, textAlign }
     if (activeBookId !== null) {
-      // Save to per-book settings
-      window.electronAPI.updateBookSettings(activeBookId, settings)
+      window.electronAPI.updateBookSettings(activeBookId, settings).catch((e) => {
+        console.error('Failed to save book settings:', e)
+      })
     } else {
-      // Save to global settings
-      window.electronAPI.updateSettings(settings)
+      window.electronAPI.updateSettings(settings).catch((e) => {
+        console.error('Failed to save settings:', e)
+      })
     }
   },
 
   loadSettings: async () => {
     try {
       const settings = await window.electronAPI.getSettings()
-      if (settings.theme) set({ theme: settings.theme })
-      if (settings.fontSize) set({ fontSize: settings.fontSize })
-      if (settings.fontFamily) set({ fontFamily: settings.fontFamily })
-      if (settings.lineHeight) set({ lineHeight: settings.lineHeight })
-      if (settings.margin) set({ margin: settings.margin })
-      if (settings.textAlign) set({ textAlign: settings.textAlign })
+      if (settings.theme !== undefined) set({ theme: settings.theme })
+      if (settings.fontSize !== undefined) set({ fontSize: settings.fontSize })
+      if (settings.fontFamily !== undefined) set({ fontFamily: settings.fontFamily })
+      if (settings.lineHeight !== undefined) set({ lineHeight: settings.lineHeight })
+      if (settings.margin !== undefined) set({ margin: settings.margin })
+      if (settings.textAlign !== undefined) set({ textAlign: settings.textAlign })
     } catch (e) {
       console.error('Failed to load settings:', e)
     }
   },
 
-  // Load per-book settings when opening a book
   loadBookSettings: async (bookId: number) => {
     try {
-      // First load global settings as base
       const globalSettings = await window.electronAPI.getSettings()
       const baseSettings: Record<string, any> = {}
       for (const key of SETTINGS_KEYS) {
         if (globalSettings[key] !== undefined) baseSettings[key] = globalSettings[key]
       }
 
-      // Then check for per-book overrides
       const bookSettings = await window.electronAPI.getBookSettings(bookId)
       if (bookSettings) {
-        // Merge: book settings override global
         for (const key of SETTINGS_KEYS) {
           if (bookSettings[key] !== undefined) baseSettings[key] = bookSettings[key]
         }
@@ -114,7 +111,6 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  // Called when closing a book - revert to global settings
   clearBookSettings: () => {
     set({ activeBookId: null })
     get().loadSettings()

@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
+import type { Book } from '../../stores/libraryStore'
 
 interface ComicRendererProps {
-  book: any
+  book: Book
   content: Uint8Array
   bookId: number
 }
@@ -20,11 +21,16 @@ export function ComicRenderer({ book, content, bookId }: ComicRendererProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [pageUrls, setPageUrls] = useState<Map<number, string>>(new Map())
 
-  const zipRef = useRef<any>(null)
   const entriesRef = useRef<ImageEntry[]>([])
   const cacheRef = useRef<Map<number, string>>(new Map())
 
-  const { progress, setProgress, saveProgress, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage } = useReaderStore()
+  const progress = useReaderStore((s) => s.progress)
+  const setProgress = useReaderStore((s) => s.setProgress)
+  const saveProgress = useReaderStore((s) => s.saveProgress)
+  const navigateTarget = useReaderStore((s) => s.navigateTarget)
+  const clearNavigateTarget = useReaderStore((s) => s.clearNavigateTarget)
+  const turnPageDelta = useReaderStore((s) => s.turnPageDelta)
+  const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
 
   // Load zip and extract file entries (not blobs)
   useEffect(() => {
@@ -34,7 +40,6 @@ export function ComicRenderer({ book, content, bookId }: ComicRendererProps) {
         const JSZip = (await import('jszip')).default
         const zip = await JSZip.loadAsync(content)
         if (cancelled) return
-        zipRef.current = zip
 
         const imageFiles: { name: string; file: any }[] = []
         zip.forEach((path, file) => {

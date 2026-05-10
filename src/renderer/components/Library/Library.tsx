@@ -61,7 +61,7 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
       try {
         const p = window.electronAPI.getFilePath(file)
         if (p) filePaths.push(p)
-      } catch {}
+      } catch (e) { console.warn('Failed to get file path:', e) }
     }
     if (filePaths.length > 0) {
       await importBooks(filePaths)
@@ -129,7 +129,7 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
           {/* Sort */}
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => setSortBy(e.target.value as 'title' | 'author' | 'added_at' | 'last_opened')}
             className="px-3 py-2 bg-[var(--reader-sidebar)] border border-[var(--reader-border)] rounded-lg text-sm text-[var(--reader-text)] focus:outline-none"
           >
             <option value="last_opened">最近阅读</option>

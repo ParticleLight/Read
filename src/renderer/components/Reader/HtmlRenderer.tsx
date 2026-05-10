@@ -3,9 +3,10 @@ import MarkdownIt from 'markdown-it'
 import { XMLParser } from 'fast-xml-parser'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import type { Book } from '../../stores/libraryStore'
 
 interface HtmlRendererProps {
-  book: any
+  book: Book
   content: Uint8Array
   bookId: number
 }
@@ -16,8 +17,22 @@ export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
   const [htmlContent, setHtmlContent] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { progress, setProgress, saveProgress, setTableOfContents, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
-  const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
+  const progress = useReaderStore((s) => s.progress)
+  const setProgress = useReaderStore((s) => s.setProgress)
+  const saveProgress = useReaderStore((s) => s.saveProgress)
+  const setTableOfContents = useReaderStore((s) => s.setTableOfContents)
+  const navigateTarget = useReaderStore((s) => s.navigateTarget)
+  const clearNavigateTarget = useReaderStore((s) => s.clearNavigateTarget)
+  const turnPageDelta = useReaderStore((s) => s.turnPageDelta)
+  const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
+  const seekTarget = useReaderStore((s) => s.seekTarget)
+  const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
+
+  const fontSize = useSettingsStore((s) => s.fontSize)
+  const fontFamily = useSettingsStore((s) => s.fontFamily)
+  const lineHeight = useSettingsStore((s) => s.lineHeight)
+  const margin = useSettingsStore((s) => s.margin)
+  const textAlign = useSettingsStore((s) => s.textAlign)
 
   useEffect(() => {
     if (!navigateTarget || !containerRef.current) return

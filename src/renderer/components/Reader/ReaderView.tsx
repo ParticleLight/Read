@@ -25,6 +25,7 @@ function useAnimatedMount(isOpen: boolean, duration = 200) {
 import { Sidebar } from './Sidebar'
 import { ReaderControls } from './ReaderControls'
 import { formatReadingTime } from '../../utils/format'
+import type { Book } from '../../stores/libraryStore'
 
 const EpubRenderer = lazy(() => import('./EpubRenderer').then(m => ({ default: m.EpubRenderer })))
 const PdfRenderer = lazy(() => import('./PdfRenderer').then(m => ({ default: m.PdfRenderer })))
@@ -51,7 +52,7 @@ function ReadingTimeDisplay() {
 }
 
 export function ReaderView({ bookId, onClose }: ReaderViewProps) {
-  const [book, setBook] = useState<any>(null)
+  const [book, setBook] = useState<Book | null>(null)
   const [bookContent, setBookContent] = useState<Uint8Array | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showArrows, setShowArrows] = useState(false)

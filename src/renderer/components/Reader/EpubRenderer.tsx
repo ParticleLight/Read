@@ -3,9 +3,10 @@ import { createPortal } from 'react-dom'
 import ePub, { Book, Rendition } from 'epubjs'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import type { Book as BookType } from '../../stores/libraryStore'
 
 interface EpubRendererProps {
-  book: any
+  book: BookType
   content: Uint8Array
   bookId: number
 }
@@ -25,8 +26,27 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
   const [isReady, setIsReady] = useState(false)
   const [highlightPopup, setHighlightPopup] = useState<{ x: number; y: number; cfiRange: string; text: string } | null>(null)
 
-  const { progress, setProgress, saveProgress, setTableOfContents, addBookmark, addHighlight, highlights, bookmarks, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
-  const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
+  const progress = useReaderStore((s) => s.progress)
+  const saveProgress = useReaderStore((s) => s.saveProgress)
+  const setProgress = useReaderStore((s) => s.setProgress)
+  const setTableOfContents = useReaderStore((s) => s.setTableOfContents)
+  const addBookmark = useReaderStore((s) => s.addBookmark)
+  const addHighlight = useReaderStore((s) => s.addHighlight)
+  const highlights = useReaderStore((s) => s.highlights)
+  const bookmarks = useReaderStore((s) => s.bookmarks)
+  const navigateTarget = useReaderStore((s) => s.navigateTarget)
+  const clearNavigateTarget = useReaderStore((s) => s.clearNavigateTarget)
+  const turnPageDelta = useReaderStore((s) => s.turnPageDelta)
+  const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
+  const seekTarget = useReaderStore((s) => s.seekTarget)
+  const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
+
+  const fontSize = useSettingsStore((s) => s.fontSize)
+  const fontFamily = useSettingsStore((s) => s.fontFamily)
+  const lineHeight = useSettingsStore((s) => s.lineHeight)
+  const margin = useSettingsStore((s) => s.margin)
+  const textAlign = useSettingsStore((s) => s.textAlign)
+  const theme = useSettingsStore((s) => s.theme)
   const spineLengthRef = useRef(0)
 
   // Handle navigation from sidebar bookmarks/TOC
@@ -121,11 +141,6 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       }
       setProgress({ progress: progressPercent, cfi })
       saveProgress()
-    })
-
-    rendition.on('keyup', (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') rendition.prev()
-      if (e.key === 'ArrowRight') rendition.next()
     })
 
     // Text selection for highlights
@@ -284,14 +299,15 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       if (e.key === 'b') {
         const loc = renditionRef.current?.currentLocation() as any
         if (loc?.start?.cfi) {
-          const nextNum = bookmarks.length + 1
-          addBookmark({ book_id: bookId, cfi: loc.start.cfi, progress: progress.progress, title: `书签${nextNum}` })
+          const { progress: p, bookmarks: bms } = useReaderStore.getState()
+          const nextNum = bms.length + 1
+          addBookmark({ book_id: bookId, cfi: loc.start.cfi, progress: p.progress, title: `书签${nextNum}` })
         }
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [bookId, goNext, goPrev])
+  }, [bookId, goNext, goPrev, addBookmark])
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     const x = e.clientX

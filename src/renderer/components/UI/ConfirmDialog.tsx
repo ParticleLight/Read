@@ -29,7 +29,7 @@ export function ConfirmDialog({ title, message, confirmText = '确认', cancelTe
           </button>
           <button
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm rounded-lg text-white transition-opacity hover:opacity-80 ${danger ? 'bg-red-600' : 'bg-[var(--reader-accent)]'}`}
+            className={`px-4 py-2 text-sm rounded-lg text-white transition-opacity hover:opacity-80 ${danger ? 'bg-[var(--color-red)]' : 'bg-[var(--reader-accent)]'}`}
           >
             {confirmText}
           </button>

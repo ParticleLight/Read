@@ -21,7 +21,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
     textAlign, setTextAlign,
   } = useSettingsStore()
 
-  const [appVersion, setAppVersion] = useState('1.8.0')
+  const [appVersion, setAppVersion] = useState<string | null>(null)
   const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle')
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [downloadPercent, setDownloadPercent] = useState(0)
@@ -267,7 +267,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-[var(--reader-text)]">ParticleBook</h3>
-                  <p className="text-sm text-[var(--reader-text)] opacity-50">v{appVersion}</p>
+                  <p className="text-sm text-[var(--reader-text)] opacity-50">v{appVersion || '...'}</p>
                 </div>
               </div>
 

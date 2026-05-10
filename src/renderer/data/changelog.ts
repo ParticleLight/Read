@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.4',
+    date: '2026-05-10',
+    changes: [
+      { type: 'improve', text: '全面性能优化：所有阅读器组件改用精确 Zustand selector，减少无效重渲染' },
+      { type: 'improve', text: 'ReaderControls 颜色适配主题系统，亮色/暗色/护眼模式统一响应' },
+      { type: 'fix', text: '修复设置保存无错误处理、margin=0 被错误跳过等稳定性问题' },
+      { type: 'fix', text: '修复 EPUB 箭头键双重点击翻页的问题' },
+      { type: 'fix', text: '添加全局错误边界，应用崩溃时显示恢复界面而非白屏' },
+      { type: 'improve', text: 'TypeScript 类型优化：book: any 改为 Book 类型，消除 as any 强制转换' },
+      { type: 'improve', text: '清理死代码 zipRef、inline opacity 冲突等问题' },
+    ],
+  },
+  {
     version: '1.8.3',
     date: '2026-05-10',
     changes: [

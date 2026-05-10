@@ -1,9 +1,10 @@
 import { useEffect, useRef, useMemo } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import type { Book } from '../../stores/libraryStore'
 
 interface TextRendererProps {
-  book: any
+  book: Book
   content: Uint8Array
   bookId: number
 }
@@ -12,13 +13,26 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const text = useMemo(() => new TextDecoder('utf-8').decode(content), [content])
 
-  const { progress, setProgress, saveProgress, setTableOfContents, navigateTarget, clearNavigateTarget, turnPageDelta, clearTurnPage, seekTarget, clearSeekTarget } = useReaderStore()
+  const progress = useReaderStore((s) => s.progress)
+  const setProgress = useReaderStore((s) => s.setProgress)
+  const saveProgress = useReaderStore((s) => s.saveProgress)
+  const setTableOfContents = useReaderStore((s) => s.setTableOfContents)
+  const navigateTarget = useReaderStore((s) => s.navigateTarget)
+  const clearNavigateTarget = useReaderStore((s) => s.clearNavigateTarget)
+  const turnPageDelta = useReaderStore((s) => s.turnPageDelta)
+  const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
+  const seekTarget = useReaderStore((s) => s.seekTarget)
+  const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
 
-  // Clear TOC on mount since TXT files don't have structured headings
   useEffect(() => {
     setTableOfContents([])
-  }, [])
-  const { fontSize, fontFamily, lineHeight, margin, textAlign, theme } = useSettingsStore()
+  }, [setTableOfContents])
+
+  const fontSize = useSettingsStore((s) => s.fontSize)
+  const fontFamily = useSettingsStore((s) => s.fontFamily)
+  const lineHeight = useSettingsStore((s) => s.lineHeight)
+  const margin = useSettingsStore((s) => s.margin)
+  const textAlign = useSettingsStore((s) => s.textAlign)
 
   useEffect(() => {
     if (!navigateTarget || !containerRef.current) return
