@@ -86,6 +86,17 @@ interface ElectronAPI {
   getReadingTime: (bookId: number) => Promise<number>
   getAllReadingTime: () => Promise<Record<number, number>>
   getAllReadingProgress: () => Promise<Record<number, { progress: number; page?: number; updated_at: string }>>
+
+  // Auto Updater
+  checkUpdate: () => Promise<void>
+  getAppVersion: () => Promise<string>
+  downloadUpdate: () => Promise<void>
+  quitAndInstall: () => Promise<void>
+  onUpdateAvailable: (callback: (info: any) => void) => () => void
+  onUpdateNotAvailable: (callback: () => void) => () => void
+  onUpdateDownloaded: (callback: () => void) => () => void
+  onUpdateError: (callback: (message: string) => void) => () => void
+  onUpdateDownloadProgress: (callback: (progress: { percent: number }) => void) => () => void
 }
 
 declare interface Window {

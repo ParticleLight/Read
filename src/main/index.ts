@@ -8,12 +8,15 @@ import { registerFileHandlers } from './ipc/fileHandlers'
 import { registerDbHandlers } from './ipc/dbHandlers'
 import { registerBookSourceHandlers } from './ipc/bookSourceHandlers'
 import { registerZlibHandlers } from './ipc/zlibHandlers'
+import { UpdaterService } from './services/updater'
+import { registerUpdaterHandlers } from './ipc/updaterHandlers'
 
 let mainWindow: BrowserWindow | null = null
 let db: DatabaseService
 let library: LibraryService
 let bookSourceService: BookSourceService
 let zlibService: ZLibraryService
+let updaterService: UpdaterService
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -73,6 +76,10 @@ app.whenReady().then(async () => {
   createWindow()
 
   registerZlibHandlers(zlibService, mainWindow!)
+
+  updaterService = new UpdaterService()
+  updaterService.setWindow(mainWindow!)
+  registerUpdaterHandlers(updaterService)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

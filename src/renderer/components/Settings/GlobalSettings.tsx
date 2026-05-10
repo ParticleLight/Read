@@ -1,7 +1,14 @@
+import { useState, useEffect } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 interface GlobalSettingsProps {
   onBack: () => void
+}
+
+interface UpdateInfo {
+  version: string
+  releaseDate?: string
+  releaseNotes?: string
 }
 
 export function GlobalSettings({ onBack }: GlobalSettingsProps) {
@@ -14,6 +21,12 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
     textAlign, setTextAlign,
   } = useSettingsStore()
 
+  const [appVersion, setAppVersion] = useState('1.8.0')
+  const [updateStatus, setUpdateStatus] = useState<'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error'>('idle')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [downloadPercent, setDownloadPercent] = useState(0)
+  const [errorMessage, setErrorMessage] = useState('')
+
   const fonts = [
     { label: '衬线体', value: 'Georgia, Noto Serif SC, serif' },
     { label: '无衬线', value: 'Inter, Noto Sans SC, sans-serif' },
@@ -25,6 +38,51 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
     { id: 'dark' as const, label: '暗色模式', desc: '适合夜间阅读', icon: 'M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z' },
     { id: 'sepia' as const, label: '护眼模式', desc: '降低蓝光，缓解疲劳', icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z' },
   ]
+
+  useEffect(() => {
+    window.electronAPI.getAppVersion().then((v) => setAppVersion(v))
+  }, [])
+
+  useEffect(() => {
+    const unsubs = [
+      window.electronAPI.onUpdateAvailable((info) => {
+        setUpdateInfo(info)
+        setUpdateStatus('available')
+      }),
+      window.electronAPI.onUpdateNotAvailable(() => {
+        setUpdateStatus('not-available')
+        setTimeout(() => setUpdateStatus('idle'), 3000)
+      }),
+      window.electronAPI.onUpdateDownloaded(() => {
+        setUpdateStatus('downloaded')
+      }),
+      window.electronAPI.onUpdateError((msg) => {
+        setErrorMessage(msg)
+        setUpdateStatus('error')
+        setTimeout(() => setUpdateStatus('idle'), 5000)
+      }),
+      window.electronAPI.onUpdateDownloadProgress((p) => {
+        setUpdateStatus('downloading')
+        setDownloadPercent(p.percent)
+      }),
+    ]
+    return () => unsubs.forEach((u) => u())
+  }, [])
+
+  const handleCheckUpdate = () => {
+    setUpdateStatus('checking')
+    setErrorMessage('')
+    window.electronAPI.checkUpdate()
+  }
+
+  const handleDownloadUpdate = () => {
+    setUpdateStatus('downloading')
+    window.electronAPI.downloadUpdate()
+  }
+
+  const handleQuitAndInstall = () => {
+    window.electronAPI.quitAndInstall()
+  }
 
   return (
     <div className="h-screen flex flex-col bg-[var(--reader-bg)]">
@@ -203,9 +261,80 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-[var(--reader-text)]">ParticleBook</h3>
-                  <p className="text-sm text-[var(--reader-text)] opacity-50">v1.6.0</p>
+                  <p className="text-sm text-[var(--reader-text)] opacity-50">v{appVersion}</p>
                 </div>
               </div>
+
+              {/* Update section */}
+              <div className="mb-4">
+                {updateStatus === 'checking' && (
+                  <div className="flex items-center gap-2 p-3 rounded-lg" style={{ color: 'var(--notify-info-text)', backgroundColor: 'var(--notify-info-bg)' }}>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                    <span className="text-sm">正在检查更新...</span>
+                  </div>
+                )}
+                {updateStatus === 'available' && updateInfo && (
+                  <div className="p-3 rounded-lg" style={{ color: 'var(--notify-success-text)', backgroundColor: 'var(--notify-success-bg)' }}>
+                    <p className="text-sm font-medium mb-2">发现新版本 v{updateInfo.version}</p>
+                    {updateInfo.releaseNotes && (
+                      <p className="text-xs opacity-70 mb-2">{updateInfo.releaseNotes}</p>
+                    )}
+                    <button
+                      onClick={handleDownloadUpdate}
+                      className="px-3 py-1.5 text-xs rounded-md font-medium"
+                      style={{ backgroundColor: 'var(--color-green)', color: '#fff' }}
+                    >
+                      下载更新
+                    </button>
+                  </div>
+                )}
+                {updateStatus === 'downloading' && (
+                  <div className="p-3 rounded-lg" style={{ color: 'var(--notify-info-text)', backgroundColor: 'var(--notify-info-bg)' }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                      <span className="text-sm">正在下载更新...</span>
+                    </div>
+                    <div className="h-1.5 rounded-full mt-2" style={{ backgroundColor: 'var(--reader-border)' }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${downloadPercent}%`, backgroundColor: 'var(--color-indigo)' }} />
+                    </div>
+                  </div>
+                )}
+                {updateStatus === 'downloaded' && (
+                  <div className="p-3 rounded-lg" style={{ color: 'var(--notify-success-text)', backgroundColor: 'var(--notify-success-bg)' }}>
+                    <p className="text-sm font-medium mb-2">更新已下载，重启软件即可安装</p>
+                    <button
+                      onClick={handleQuitAndInstall}
+                      className="px-3 py-1.5 text-xs rounded-md font-medium"
+                      style={{ backgroundColor: 'var(--color-green)', color: '#fff' }}
+                    >
+                      立即重启
+                    </button>
+                  </div>
+                )}
+                {updateStatus === 'not-available' && (
+                  <div className="p-3 rounded-lg text-sm" style={{ color: 'var(--notify-success-text)', backgroundColor: 'var(--notify-success-bg)' }}>
+                    已是最新版本
+                  </div>
+                )}
+                {updateStatus === 'error' && (
+                  <div className="p-3 rounded-lg text-sm" style={{ color: 'var(--notify-error-text)', backgroundColor: 'var(--notify-error-bg)' }}>
+                    {errorMessage}
+                  </div>
+                )}
+                {(updateStatus === 'idle' || updateStatus === 'not-available' || updateStatus === 'error') && (
+                  <button
+                    onClick={handleCheckUpdate}
+                    className="w-full px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                    style={{ color: 'var(--color-indigo)', backgroundColor: 'var(--color-indigo-bg)' }}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    检查更新
+                  </button>
+                )}
+              </div>
+
               <p className="text-sm text-[var(--reader-text)] opacity-70 leading-relaxed mb-3">
                 一款内置 Z-Library 的全功能电子书阅读器，支持 EPUB、PDF、MOBI、TXT、FB2、CBZ/CBR、HTML、Markdown 等多种格式。
               </p>

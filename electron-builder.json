@@ -2,6 +2,11 @@
   "$schema": "https://json.schemastore.org/electron-builder.json",
   "appId": "com.particle.book",
   "productName": "ParticleBook",
+  "publish": {
+    "provider": "github",
+    "owner": "ParticleLight",
+    "repo": "ParticleBook"
+  },
   "compression": "maximum",
   "directories": {
     "output": "release"

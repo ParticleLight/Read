@@ -89,6 +89,17 @@ export interface ElectronAPI {
   getReadingTime: (bookId: number) => Promise<number>
   getAllReadingTime: () => Promise<Record<number, number>>
   getAllReadingProgress: () => Promise<Record<number, any>>
+
+  // Auto Updater
+  checkUpdate: () => Promise<void>
+  getAppVersion: () => Promise<string>
+  downloadUpdate: () => Promise<void>
+  quitAndInstall: () => Promise<void>
+  onUpdateAvailable: (callback: (info: any) => void) => () => void
+  onUpdateNotAvailable: (callback: () => void) => () => void
+  onUpdateDownloaded: (callback: () => void) => () => void
+  onUpdateError: (callback: (message: string) => void) => () => void
+  onUpdateDownloadProgress: (callback: (progress: any) => void) => () => void
 }
 
 const api: ElectronAPI = {
@@ -206,6 +217,36 @@ const api: ElectronAPI = {
   getReadingTime: (bookId) => ipcRenderer.invoke('db:getReadingTime', bookId),
   getAllReadingTime: () => ipcRenderer.invoke('db:getAllReadingTime'),
   getAllReadingProgress: () => ipcRenderer.invoke('db:getAllReadingProgress'),
+
+  checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
+  getAppVersion: () => ipcRenderer.invoke('app:getVersion'),
+  downloadUpdate: () => ipcRenderer.invoke('app:downloadUpdate'),
+  quitAndInstall: () => ipcRenderer.invoke('app:quitAndInstall'),
+  onUpdateAvailable: (callback) => {
+    const handler = (_event: any, info: any) => callback(info)
+    ipcRenderer.on('app:updateAvailable', handler)
+    return () => ipcRenderer.removeListener('app:updateAvailable', handler)
+  },
+  onUpdateNotAvailable: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('app:updateNotAvailable', handler)
+    return () => ipcRenderer.removeListener('app:updateNotAvailable', handler)
+  },
+  onUpdateDownloaded: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('app:updateDownloaded', handler)
+    return () => ipcRenderer.removeListener('app:updateDownloaded', handler)
+  },
+  onUpdateError: (callback) => {
+    const handler = (_event: any, message: string) => callback(message)
+    ipcRenderer.on('app:updateError', handler)
+    return () => ipcRenderer.removeListener('app:updateError', handler)
+  },
+  onUpdateDownloadProgress: (callback) => {
+    const handler = (_event: any, progress: any) => callback(progress)
+    ipcRenderer.on('app:downloadProgress', handler)
+    return () => ipcRenderer.removeListener('app:downloadProgress', handler)
+  },
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)

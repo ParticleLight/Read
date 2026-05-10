@@ -19,7 +19,9 @@
   },
   "dependencies": {
     "cheerio": "^1.0.0",
+    "electron-updater": "^6.8.3",
     "epubjs": "^0.3.93",
+    "get-caller-file": "^2.0.5",
     "fast-xml-parser": "^4.5.3",
     "jszip": "^3.10.1",
     "lowdb": "^7.0.1",
