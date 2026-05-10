@@ -18,7 +18,7 @@ function useAnimatedMount(isOpen: boolean, duration = 200) {
       }, duration)
       return () => clearTimeout(timer)
     }
-  }, [isOpen])
+  }, [isOpen, shouldRender])
 
   return { shouldRender, isClosing }
 }
@@ -70,6 +70,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const loadNotes = useReaderStore((s) => s.loadNotes)
   const turnPage = useReaderStore((s) => s.turnPage)
   const saveProgress = useReaderStore((s) => s.saveProgress)
+  const flushProgress = useReaderStore((s) => s.flushProgress)
   const setBookId = useReaderStore((s) => s.setBookId)
   const startReadingSession = useReaderStore((s) => s.startReadingSession)
   const endReadingSession = useReaderStore((s) => s.endReadingSession)
@@ -82,18 +83,23 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   useEffect(() => {
     setBookId(bookId)
     const loadBook = async () => {
-      const bookData = await window.electronAPI.getBook(bookId)
-      setBook(bookData)
+      try {
+        const bookData = await window.electronAPI.getBook(bookId)
+        setBook(bookData)
 
-      // Load progress BEFORE content so renderer has correct position on mount
-      await loadProgress(bookId)
-      await loadBookmarks(bookId)
-      await loadHighlights(bookId)
-      await loadNotes(bookId)
-      await loadBookSettings(bookId)
+        // Load progress BEFORE content so renderer has correct position on mount
+        await loadProgress(bookId)
+        await loadBookmarks(bookId)
+        await loadHighlights(bookId)
+        await loadNotes(bookId)
+        await loadBookSettings(bookId)
 
-      const content = await window.electronAPI.readFile(bookData.file_path)
-      setBookContent(new Uint8Array(content))
+        const content = await window.electronAPI.readFile(bookData.file_path)
+        setBookContent(new Uint8Array(content))
+      } catch (e) {
+        console.error('Failed to load book:', e)
+        onClose()
+      }
     }
     loadBook()
 
@@ -109,9 +115,10 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       try {
         const state = useReaderStore.getState()
         if (state.bookId === null) return
-        await startReadingSession()
         sessionActiveRef.current = true
+        await startReadingSession()
       } catch (e) {
+        sessionActiveRef.current = false
         console.error('Failed to start reading session:', e)
       }
     }
@@ -123,7 +130,8 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
     return () => {
       if (sessionActiveRef.current) {
         sessionActiveRef.current = false
-        endReadingSession()
+        const { flushProgress } = useReaderStore.getState()
+        flushProgress().finally(() => endReadingSession())
       }
     }
   }, [bookId])
@@ -142,7 +150,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         await endReadingSession()
-        saveProgress()
+        await flushProgress()
         clearBookSettings()
         onClose()
       }
@@ -193,7 +201,13 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       arrowTimerRef.current = window.setTimeout(() => setShowArrows(false), 2000)
     }
     window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      if (arrowTimerRef.current) {
+        clearTimeout(arrowTimerRef.current)
+        arrowTimerRef.current = null
+      }
+    }
   }, [controlsLocked])
 
   if (!book || !bookContent) {
@@ -251,7 +265,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       <div className="flex-1 relative overflow-hidden">
         {/* Back button */}
         <button
-          onClick={async () => { await endReadingSession(); saveProgress(); clearBookSettings(); onClose() }}
+          onClick={async () => { await endReadingSession(); await flushProgress(); clearBookSettings(); onClose() }}
           className="absolute top-4 left-4 z-30 p-2 rounded-lg bg-black/20 hover:bg-black/40 text-white/70 hover:text-white transition-all backdrop-blur-sm"
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

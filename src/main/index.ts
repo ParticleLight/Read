@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, protocol } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, protocol, Menu } from 'electron'
 import { join } from 'path'
 import { DatabaseService } from './services/database'
 import { LibraryService } from './services/library'
@@ -10,6 +10,7 @@ import { registerBookSourceHandlers } from './ipc/bookSourceHandlers'
 import { registerZlibHandlers } from './ipc/zlibHandlers'
 import { UpdaterService } from './services/updater'
 import { registerUpdaterHandlers } from './ipc/updaterHandlers'
+import { setupMenu } from './menu'
 
 let mainWindow: BrowserWindow | null = null
 let db: DatabaseService
@@ -49,6 +50,7 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
+  setupMenu()
   db = new DatabaseService()
   await db.ensureReady()
   library = new LibraryService(db)
@@ -80,6 +82,9 @@ app.whenReady().then(async () => {
   updaterService = new UpdaterService()
   updaterService.setWindow(mainWindow!)
   registerUpdaterHandlers(updaterService)
+
+  // Auto-check for updates on startup
+  setTimeout(() => updaterService.checkForUpdates(), 3000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

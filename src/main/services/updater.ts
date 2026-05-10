@@ -42,11 +42,7 @@ export class UpdaterService {
   }
 
   async checkForUpdates() {
-    try {
-      await autoUpdater.checkForUpdates()
-    } catch {
-      this.safeSend('app:updateError', '检查更新失败，请检查网络')
-    }
+    autoUpdater.checkForUpdates().catch(() => {})
   }
 
   getCurrentVersion(): string {
@@ -54,7 +50,9 @@ export class UpdaterService {
   }
 
   downloadUpdate() {
-    autoUpdater.downloadUpdate().catch(() => {})
+    autoUpdater.downloadUpdate().catch((err) => {
+      this.safeSend('app:updateError', err?.message || '下载失败')
+    })
   }
 
   quitAndInstall() {

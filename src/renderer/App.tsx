@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { Library } from './components/Library/Library'
 import { ReaderView } from './components/Reader/ReaderView'
+import { UpdateBanner } from './components/UI/UpdateBanner'
 import { useSettingsStore } from './stores/settingsStore'
 import { useLibraryStore } from './stores/libraryStore'
 
@@ -35,32 +36,48 @@ export default function App() {
   }
 
   if (currentBookId !== null) {
-    return <ReaderView bookId={currentBookId} onClose={closeBook} />
+    return (
+      <>
+        <UpdateBanner />
+        <ReaderView bookId={currentBookId} onClose={closeBook} />
+      </>
+    )
   }
 
   if (page === 'settings') {
     return (
-      <Suspense fallback={
-        <div className="h-screen flex items-center justify-center bg-[var(--reader-bg)]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-        </div>
-      }>
-        <GlobalSettings onBack={() => setPage('library')} />
-      </Suspense>
+      <>
+        <UpdateBanner />
+        <Suspense fallback={
+          <div className="h-screen flex items-center justify-center bg-[var(--reader-bg)]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+          </div>
+        }>
+          <GlobalSettings onBack={() => setPage('library')} />
+        </Suspense>
+      </>
     )
   }
 
   if (page === 'zlibrary') {
     return (
-      <Suspense fallback={
-        <div className="h-screen flex items-center justify-center bg-[var(--reader-bg)]">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
-        </div>
-      }>
-        <ZLibraryView onBack={() => setPage('library')} />
-      </Suspense>
+      <>
+        <UpdateBanner />
+        <Suspense fallback={
+          <div className="h-screen flex items-center justify-center bg-[var(--reader-bg)]">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500"></div>
+          </div>
+        }>
+          <ZLibraryView onBack={() => setPage('library')} />
+        </Suspense>
+      </>
     )
   }
 
-  return <Library onOpenBook={openBook} onOpenSettings={() => setPage('settings')} onOpenZLibrary={() => setPage('zlibrary')} />
+  return (
+    <>
+      <UpdateBanner />
+      <Library onOpenBook={openBook} onOpenSettings={() => setPage('settings')} onOpenZLibrary={() => setPage('zlibrary')} />
+    </>
+  )
 }

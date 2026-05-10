@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 interface GlobalSettingsProps {
@@ -26,6 +26,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [downloadPercent, setDownloadPercent] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
+  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fonts = [
     { label: '衬线体', value: 'Georgia, Noto Serif SC, serif' },
@@ -51,7 +52,8 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
       }),
       window.electronAPI.onUpdateNotAvailable(() => {
         setUpdateStatus('not-available')
-        setTimeout(() => setUpdateStatus('idle'), 3000)
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = setTimeout(() => { idleTimerRef.current = null; setUpdateStatus('idle') }, 3000)
       }),
       window.electronAPI.onUpdateDownloaded(() => {
         setUpdateStatus('downloaded')
@@ -59,14 +61,18 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
       window.electronAPI.onUpdateError((msg) => {
         setErrorMessage(msg)
         setUpdateStatus('error')
-        setTimeout(() => setUpdateStatus('idle'), 5000)
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = setTimeout(() => { idleTimerRef.current = null; setUpdateStatus('idle') }, 5000)
       }),
       window.electronAPI.onUpdateDownloadProgress((p) => {
         setUpdateStatus('downloading')
         setDownloadPercent(p.percent)
       }),
     ]
-    return () => unsubs.forEach((u) => u())
+    return () => {
+      unsubs.forEach((u) => u())
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    }
   }, [])
 
   const handleCheckUpdate = () => {
