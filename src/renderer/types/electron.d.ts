@@ -87,6 +87,10 @@ interface ElectronAPI {
   getAllReadingTime: () => Promise<Record<number, number>>
   getAllReadingProgress: () => Promise<Record<number, { progress: number; page?: number; updated_at: string }>>
 
+  // Menu events
+  onMenuImportBooks: (callback: (filePaths: string[]) => void) => () => void
+  onMenuShowAbout: (callback: () => void) => () => void
+
   // Auto Updater
   checkUpdate: () => Promise<void>
   getAppVersion: () => Promise<string>

@@ -50,7 +50,6 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  setupMenu()
   db = new DatabaseService()
   await db.ensureReady()
   library = new LibraryService(db)
@@ -76,6 +75,8 @@ app.whenReady().then(async () => {
   zlibService = new ZLibraryService(library)
 
   createWindow()
+
+  setupMenu(mainWindow!)
 
   registerZlibHandlers(zlibService, mainWindow!)
 

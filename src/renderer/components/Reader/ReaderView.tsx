@@ -58,6 +58,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const [showArrows, setShowArrows] = useState(false)
   const arrowTimerRef = useRef<number | null>(null)
   const sessionActiveRef = useRef(false)
+  const settingsOpenRef = useRef(false)
 
   const showSidebar = useReaderStore((s) => s.showSidebar)
   const showControls = useReaderStore((s) => s.showControls)
@@ -106,6 +107,11 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
 
     return () => { setBookId(null) }
   }, [bookId])
+
+  // Sync settings panel open state to ref for wheel handler
+  useEffect(() => {
+    settingsOpenRef.current = showSettings
+  }, [showSettings])
 
   // Start reading session when both bookId and content are ready
   useEffect(() => {
@@ -171,9 +177,9 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       // Don't intercept Ctrl+Wheel (used for zoom in PDF)
       if (e.ctrlKey) return
 
-      // Don't turn pages when sidebar is open
+      // Don't turn pages when sidebar or settings is open
       const { showSidebar } = useReaderStore.getState()
-      if (showSidebar) return
+      if (showSidebar || settingsOpenRef.current) return
 
       e.preventDefault()
       if (wheelTimer) return

@@ -21,6 +21,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    return window.electronAPI.onMenuShowAbout(() => {
+      setPage('settings')
+    })
+  }, [])
+
+  useEffect(() => {
     const root = document.documentElement
     root.classList.remove('dark', 'light', 'sepia')
     root.classList.add(theme)

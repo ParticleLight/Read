@@ -52,6 +52,13 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
     }
   }, [importBooks])
 
+  // Listen for menu "导入书籍" event
+  useEffect(() => {
+    return window.electronAPI.onMenuImportBooks((filePaths) => {
+      importBooks(filePaths)
+    })
+  }, [importBooks])
+
   const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault()
     dragCounterRef.current = 0

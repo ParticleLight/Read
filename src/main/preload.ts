@@ -90,6 +90,10 @@ export interface ElectronAPI {
   getAllReadingTime: () => Promise<Record<number, number>>
   getAllReadingProgress: () => Promise<Record<number, any>>
 
+  // Menu events
+  onMenuImportBooks: (callback: (filePaths: string[]) => void) => () => void
+  onMenuShowAbout: (callback: () => void) => () => void
+
   // Auto Updater
   checkUpdate: () => Promise<void>
   getAppVersion: () => Promise<string>
@@ -217,6 +221,17 @@ const api: ElectronAPI = {
   getReadingTime: (bookId) => ipcRenderer.invoke('db:getReadingTime', bookId),
   getAllReadingTime: () => ipcRenderer.invoke('db:getAllReadingTime'),
   getAllReadingProgress: () => ipcRenderer.invoke('db:getAllReadingProgress'),
+
+  onMenuImportBooks: (callback) => {
+    const handler = (_event: any, filePaths: string[]) => callback(filePaths)
+    ipcRenderer.on('menu:importBooks', handler)
+    return () => ipcRenderer.removeListener('menu:importBooks', handler)
+  },
+  onMenuShowAbout: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('menu:showAbout', handler)
+    return () => ipcRenderer.removeListener('menu:showAbout', handler)
+  },
 
   checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
   getAppVersion: () => ipcRenderer.invoke('app:getVersion'),

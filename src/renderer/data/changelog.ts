@@ -9,6 +9,16 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.5',
+    date: '2026-05-10',
+    changes: [
+      { type: 'fix', text: '修复打开阅读设置面板时滚轮仍触发翻页的问题' },
+      { type: 'improve', text: '菜单栏"编辑"隐藏，减少干扰' },
+      { type: 'improve', text: '菜单栏"导入书籍"功能修复，点击弹出文件选择对话框' },
+      { type: 'improve', text: '菜单栏"关于 ParticleBook"功能修复，点击跳转设置页面' },
+    ],
+  },
+  {
     version: '1.8.4',
     date: '2026-05-10',
     changes: [
