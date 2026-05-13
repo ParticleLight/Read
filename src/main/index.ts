@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog, protocol, Menu } from 'electron'
-import { join } from 'path'
+import { join, resolve } from 'path'
+import { existsSync, readFileSync } from 'fs'
 import { DatabaseService } from './services/database'
 import { LibraryService } from './services/library'
 import { BookSourceService } from './services/bookSource'
@@ -11,6 +12,7 @@ import { registerZlibHandlers } from './ipc/zlibHandlers'
 import { UpdaterService } from './services/updater'
 import { registerUpdaterHandlers } from './ipc/updaterHandlers'
 import { setupMenu } from './menu'
+import { pdfOpen, pdfRenderPage, pdfClose } from './services/pdfRenderService'
 
 let mainWindow: BrowserWindow | null = null
 let db: DatabaseService
@@ -29,6 +31,7 @@ function createWindow() {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      webviewTag: true,
     },
     backgroundColor: '#1a1a2e',
   })
@@ -64,6 +67,47 @@ app.whenReady().then(async () => {
       return
     }
     callback({ path: normalizedPath })
+  })
+
+  // Serve book files via Chromium's native PDF viewer (PDFium)
+  protocol.handle('book-file', (request) => {
+    try {
+      const urlPart = request.url.slice('book-file://'.length)
+      const filePath = decodeURIComponent(urlPart.split('#')[0].split('?')[0])
+      const resolvedPath = resolve(filePath)
+      if (!existsSync(resolvedPath)) {
+        return new Response('File not found', { status: 404 })
+      }
+      const data = readFileSync(resolvedPath)
+      const ext = resolvedPath.split('.').pop()?.toLowerCase() || ''
+      const mimeTypes: Record<string, string> = {
+        pdf: 'application/pdf',
+        epub: 'application/epub+zip',
+        cbz: 'application/vnd.comicbook+zip',
+        cbr: 'application/vnd.comicbook-rar',
+        txt: 'text/plain; charset=utf-8',
+        html: 'text/html; charset=utf-8',
+        htm: 'text/html; charset=utf-8',
+        md: 'text/markdown; charset=utf-8',
+        mobi: 'application/x-mobipocket-ebook',
+        fb2: 'application/x-fictionbook+xml',
+      }
+      const mimeType = mimeTypes[ext] || 'application/octet-stream'
+      return new Response(data, { headers: { 'content-type': mimeType } })
+    } catch {
+      return new Response('Internal error', { status: 500 })
+    }
+  })
+
+  // PDF native rendering via MuPDF
+  ipcMain.handle('pdf:open', async (_e, filePath: string) => {
+    try { return await pdfOpen(filePath) } catch (e: any) { console.error('pdf:open failed:', e?.message || e); throw e }
+  })
+  ipcMain.handle('pdf:renderPage', async (_e, id: number, pageNum: number, w: number, h: number) => {
+    try { return await pdfRenderPage(id, pageNum, w, h) } catch (e: any) { console.error('pdf:renderPage failed:', e?.message || e); throw e }
+  })
+  ipcMain.handle('pdf:close', async (_e, id: number) => {
+    try { return await pdfClose(id) } catch (e: any) { console.error('pdf:close failed:', e?.message || e); throw e }
   })
 
   registerFileHandlers(library)

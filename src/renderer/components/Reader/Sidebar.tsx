@@ -7,20 +7,12 @@ interface SidebarProps {
 }
 
 export function Sidebar({ bookId, onClose }: SidebarProps) {
-  const sidebarTab = useReaderStore((s) => s.sidebarTab)
-  const setSidebarTab = useReaderStore((s) => s.setSidebarTab)
-  const tableOfContents = useReaderStore((s) => s.tableOfContents)
-  const bookmarks = useReaderStore((s) => s.bookmarks)
-  const highlights = useReaderStore((s) => s.highlights)
-  const notes = useReaderStore((s) => s.notes)
-  const removeBookmark = useReaderStore((s) => s.removeBookmark)
-  const updateBookmark = useReaderStore((s) => s.updateBookmark)
-  const removeHighlight = useReaderStore((s) => s.removeHighlight)
-  const removeNote = useReaderStore((s) => s.removeNote)
-  const addNote = useReaderStore((s) => s.addNote)
-  const progress = useReaderStore((s) => s.progress)
-  const navigateTo = useReaderStore((s) => s.navigateTo)
-  const setShowSidebar = useReaderStore((s) => s.setShowSidebar)
+  const {
+    sidebarTab, setSidebarTab, tableOfContents,
+    bookmarks, highlights, notes,
+    removeBookmark, updateBookmark, removeHighlight, removeNote,
+    addNote, progress, navigateTo, setShowSidebar,
+  } = useReaderStore()
   const [newNote, setNewNote] = useState('')
   const [editingBookmarkId, setEditingBookmarkId] = useState<number | null>(null)
   const [editingBookmarkTitle, setEditingBookmarkTitle] = useState('')
@@ -221,7 +213,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                   }
                 }}
                 placeholder="添加笔记..."
-                className="flex-1 px-3 py-2 bg-[var(--reader-bg)] border border-[var(--reader-border)] rounded-lg text-sm text-[var(--reader-text)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:border-[var(--reader-accent)]"
+                className="flex-1 px-3 py-2 bg-[var(--reader-bg)] border border-[var(--reader-border)] rounded-lg text-sm text-[var(--reader-text)] placeholder-gray-500 focus:outline-none focus:border-[var(--reader-accent)]"
               />
               <button
                 onClick={() => {

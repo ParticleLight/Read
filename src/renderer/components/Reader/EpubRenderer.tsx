@@ -275,15 +275,15 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
     const themes = renditionRef.current.themes
     switch (theme) {
       case 'dark':
-        themes.override('color', '#e8e8e8')
-        themes.override('background', '#1a1a1a')
+        themes.override('color', '#e2e8f0')
+        themes.override('background', '#1a1a2e')
         break
       case 'light':
-        themes.override('color', '#1a1a1a')
+        themes.override('color', '#1a202c')
         themes.override('background', '#ffffff')
         break
       case 'sepia':
-        themes.override('color', '#d4c4a8')
+        themes.override('color', '#c4b494')
         themes.override('background', '#1a1510')
         break
     }
@@ -343,7 +343,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       <div ref={viewerRef} className="h-full" />
       {!isReady && (
         <div className="absolute inset-0 flex items-center justify-center bg-[var(--reader-bg)]">
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-[var(--border)] border-t-[var(--accent)]"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-500"></div>
         </div>
       )}
 

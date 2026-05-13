@@ -104,6 +104,11 @@ export interface ElectronAPI {
   onUpdateDownloaded: (callback: () => void) => () => void
   onUpdateError: (callback: (message: string) => void) => () => void
   onUpdateDownloadProgress: (callback: (progress: any) => void) => () => void
+
+  // PDF native rendering (MuPDF)
+  pdfOpen: (filePath: string) => Promise<{ id: number; pageCount: number; pageBounds: Array<{ width: number; height: number }> }>
+  pdfRenderPage: (id: number, pageNum: number, pixelWidth: number, pixelHeight: number) => Promise<string>
+  pdfClose: (id: number) => Promise<void>
 }
 
 const api: ElectronAPI = {
@@ -262,6 +267,11 @@ const api: ElectronAPI = {
     ipcRenderer.on('app:downloadProgress', handler)
     return () => ipcRenderer.removeListener('app:downloadProgress', handler)
   },
+
+  // PDF native rendering (MuPDF)
+  pdfOpen: (filePath) => ipcRenderer.invoke('pdf:open', filePath),
+  pdfRenderPage: (id, pageNum, w, h) => ipcRenderer.invoke('pdf:renderPage', id, pageNum, w, h),
+  pdfClose: (id) => ipcRenderer.invoke('pdf:close', id),
 }
 
 contextBridge.exposeInMainWorld('electronAPI', api)
