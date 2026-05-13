@@ -44,7 +44,6 @@
 
   /* === Mica / Acrylic 材质 === */
   --mica-bg: rgba(26, 26, 26, 0.75);
-  --mica-tint: rgba(255, 255, 255, 0.01);
   --acrylic-bg: rgba(36, 36, 36, 0.85);
   --acrylic-border: rgba(255, 255, 255, 0.08);
 
@@ -66,9 +65,6 @@
   --color-yellow-bg: rgba(234, 179, 8, 0.15);
   --color-orange: #fb923c;
   --color-orange-bg: rgba(251, 146, 60, 0.12);
-  --color-purple: #c084fc;
-  --color-pink: #f472b6;
-  --color-teal: #2dd4bf;
   --color-amber: #fbbf24;
   --color-amber-bg: rgba(251, 191, 36, 0.12);
 
@@ -101,7 +97,6 @@
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.10);
   --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.16);
   --mica-bg: rgba(255, 255, 255, 0.75);
-  --mica-tint: rgba(0, 0, 0, 0.02);
   --acrylic-bg: rgba(255, 255, 255, 0.85);
   --acrylic-border: rgba(0, 0, 0, 0.06);
   --reader-bg: var(--bg);

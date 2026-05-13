@@ -4,7 +4,12 @@ import { useLibraryStore } from '../../stores/libraryStore'
 interface BookShelfPanelProps { onOpenBookSource?: () => void; onOpenZLibrary?: () => void; onAddFromAll?: () => void }
 
 export function BookShelfPanel({ onOpenBookSource, onOpenZLibrary, onAddFromAll }: BookShelfPanelProps) {
-  const { bookshelves, activeShelfId, setActiveShelf, createBookshelf, deleteBookshelf, renameBookshelf } = useLibraryStore()
+  const bookshelves = useLibraryStore((s) => s.bookshelves)
+  const activeShelfId = useLibraryStore((s) => s.activeShelfId)
+  const setActiveShelf = useLibraryStore((s) => s.setActiveShelf)
+  const createBookshelf = useLibraryStore((s) => s.createBookshelf)
+  const deleteBookshelf = useLibraryStore((s) => s.deleteBookshelf)
+  const renameBookshelf = useLibraryStore((s) => s.renameBookshelf)
   const [newName, setNewName] = useState('')
   const [showDialog, setShowDialog] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)

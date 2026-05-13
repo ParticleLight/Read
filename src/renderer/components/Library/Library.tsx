@@ -88,7 +88,24 @@ function BookPickerDialog({ books, shelfName, shelfBookIds, onAdd, onClose }: { 
 }
 
 export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryProps) {
-  const { books, isLoading, viewMode, searchQuery, sortBy, activeShelfId, bookshelves, setViewMode, setSearchQuery, setSortBy, importBooks, addBookToShelf, loadBooks, loadBookshelves, loadReadingTime, loadReadingProgress } = useLibraryStore()
+  const books = useLibraryStore((s) => s.books)
+  const isLoading = useLibraryStore((s) => s.isLoading)
+  const viewMode = useLibraryStore((s) => s.viewMode)
+  const searchQuery = useLibraryStore((s) => s.searchQuery)
+  const sortBy = useLibraryStore((s) => s.sortBy)
+  const activeShelfId = useLibraryStore((s) => s.activeShelfId)
+  const bookshelves = useLibraryStore((s) => s.bookshelves)
+  const shelfBookIds = useLibraryStore((s) => s.shelfBookIds)
+  const allBooks = useLibraryStore((s) => s.allBooks)
+  const setViewMode = useLibraryStore((s) => s.setViewMode)
+  const setSearchQuery = useLibraryStore((s) => s.setSearchQuery)
+  const setSortBy = useLibraryStore((s) => s.setSortBy)
+  const importBooks = useLibraryStore((s) => s.importBooks)
+  const addBookToShelf = useLibraryStore((s) => s.addBookToShelf)
+  const loadBooks = useLibraryStore((s) => s.loadBooks)
+  const loadBookshelves = useLibraryStore((s) => s.loadBookshelves)
+  const loadReadingTime = useLibraryStore((s) => s.loadReadingTime)
+  const loadReadingProgress = useLibraryStore((s) => s.loadReadingProgress)
   const [isDragOver, setIsDragOver] = useState(false)
   const [showStatistics, setShowStatistics] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
@@ -97,14 +114,6 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
   const [showBookPicker, setShowBookPicker] = useState(false)
   const dragCounterRef = useRef(0)
   const moreBtnRef = useRef<HTMLButtonElement>(null)
-  const shelfBookIds = useLibraryStore((s) => s.shelfBookIds)
-
-  const allBooks = useLibraryStore((s) => s.allBooks)
-
-  const booksForPicker = useMemo(() => {
-    if (activeShelfId == null) return []
-    return allBooks
-  }, [allBooks, activeShelfId])
 
   useEffect(() => { loadBookshelves(); loadReadingTime(); loadReadingProgress() }, [loadBookshelves, loadReadingTime, loadReadingProgress])
 
@@ -275,8 +284,8 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
 
       {/* BookPicker: add existing books to current shelf */}
       {showBookPicker && (
-        <BookPickerDialog books={booksForPicker} shelfName={shelfName} shelfBookIds={shelfBookIds}
-          onAdd={(bookIds) => { bookIds.forEach((id) => addBookToShelf(activeShelfId!, id)); setShowBookPicker(false) }}
+        <BookPickerDialog books={allBooks} shelfName={shelfName} shelfBookIds={shelfBookIds}
+          onAdd={async (bookIds) => { for (const id of bookIds) { await addBookToShelf(activeShelfId!, id) }; setShowBookPicker(false) }}
           onClose={() => setShowBookPicker(false)} />
       )}
     </div>

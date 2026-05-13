@@ -131,7 +131,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   deleteBook: async (id: number) => {
     try {
       await window.electronAPI.deleteBook(id)
-      set({ books: get().books.filter((b) => b.id !== id) })
+      set((s) => ({ books: s.books.filter((b) => b.id !== id), allBooks: s.allBooks.filter((b) => b.id !== id) }))
     } catch (e) {
       console.error('Failed to delete book:', e)
     }
@@ -212,6 +212,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const { activeShelfId } = get()
       if (activeShelfId === shelfId) {
         await get().loadBooks()
+        set({ shelfBookIds: get().books.map((b) => b.id) })
       }
     } catch (e) {
       console.error('Failed to remove book from shelf:', e)

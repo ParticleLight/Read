@@ -9,6 +9,21 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.6',
+    date: '2026-05-13',
+    changes: [
+      { type: 'improve', text: 'UI 全面重构为 Win11 Fluent Design 风格（毛玻璃侧边栏、亚克力浮层、圆角阴影）' },
+      { type: 'improve', text: '暗色模式改为纯黑灰色调，天蓝强调色' },
+      { type: 'feature', text: '书柜新增"从全部添加"功能，可批量选取已有书籍加入当前书柜' },
+      { type: 'fix', text: '导入书籍时自动添加到当前书柜（修复导入后书柜内看不到的问题）' },
+      { type: 'improve', text: '命令栏简化，搜索框居中放大，次要操作收入更多菜单' },
+      { type: 'improve', text: '列表视图每行显示封面缩略图，格式标签改为圆角胶囊' },
+      { type: 'fix', text: '修复 EPUB 阅读器主题切换时颜色不响应 CSS 变量的问题' },
+      { type: 'improve', text: 'Library、BookShelf、Sidebar 改为精确 Zustand selector，减少无效重渲染' },
+      { type: 'fix', text: '修复 deleteBook 不同步 allBooks、批量添加竞态等数据一致性问题' },
+    ],
+  },
+  {
     version: '1.8.5',
     date: '2026-05-10',
     changes: [
