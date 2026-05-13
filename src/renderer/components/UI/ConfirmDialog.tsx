@@ -12,27 +12,17 @@ interface ConfirmDialogProps {
 
 export function ConfirmDialog({ title, message, confirmText = '确认', cancelText = '取消', danger = false, onConfirm, onCancel }: ConfirmDialogProps) {
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center" onClick={onCancel}>
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-      <div
-        className="relative bg-[var(--reader-sidebar)] border border-[var(--reader-border)] rounded-xl shadow-2xl p-6 max-w-sm w-full mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="text-lg font-semibold text-[var(--reader-text)] mb-2">{title}</h3>
-        <p className="text-sm text-[var(--reader-text)] opacity-70 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onCancel}
-            className="px-4 py-2 text-sm rounded-lg bg-[var(--reader-border)] text-[var(--reader-text)] hover:opacity-80 transition-opacity"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className={`px-4 py-2 text-sm rounded-lg text-white transition-opacity hover:opacity-80 ${danger ? 'bg-[var(--color-red)]' : 'bg-[var(--reader-accent)]'}`}
-          >
-            {confirmText}
-          </button>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center animate-fade-in" onClick={onCancel} role="dialog" aria-modal="true">
+      <div className="absolute inset-0" style={{ background: 'rgba(0,0,0,0.45)' }} />
+      <div className="relative rounded-xl shadow-win-lg p-6 max-w-sm w-full mx-4 animate-scale-in"
+        style={{ background: 'var(--acrylic-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--acrylic-border)' }}
+        onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{title}</h3>
+        <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>{message}</p>
+        <div className="flex justify-end gap-2">
+          <button onClick={onCancel} className="btn-secondary">{cancelText}</button>
+          <button onClick={onConfirm} className="btn-primary"
+            style={danger ? { background: 'var(--color-red)', color: '#fff' } : undefined}>{confirmText}</button>
         </div>
       </div>
     </div>,

@@ -81,7 +81,7 @@ export function SettingsPanel({ onClose, format, isClosing }: SettingsPanelProps
                   max="32"
                   value={fontSize}
                   onChange={(e) => setFontSize(Number(e.target.value))}
-                  className="flex-1 accent-indigo-500"
+                  className="flex-1" style={{ accentColor: 'var(--accent)' }}
                 />
                 <button
                   onClick={() => setFontSize(Math.min(32, fontSize + 1))}
@@ -104,7 +104,7 @@ export function SettingsPanel({ onClose, format, isClosing }: SettingsPanelProps
                 step="0.1"
                 value={lineHeight}
                 onChange={(e) => setLineHeight(Number(e.target.value))}
-                className="w-full accent-indigo-500"
+                className="w-full" style={{ accentColor: 'var(--accent)' }}
               />
             </div>
 
@@ -119,7 +119,7 @@ export function SettingsPanel({ onClose, format, isClosing }: SettingsPanelProps
                 max="100"
                 value={margin}
                 onChange={(e) => setMargin(Number(e.target.value))}
-                className="w-full accent-indigo-500"
+                className="w-full" style={{ accentColor: 'var(--accent)' }}
               />
             </div>
 

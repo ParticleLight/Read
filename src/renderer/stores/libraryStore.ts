@@ -25,6 +25,7 @@ export interface Bookshelf {
 
 export interface LibraryState {
   books: Book[]
+  allBooks: Book[]
   isLoading: boolean
   viewMode: 'grid' | 'list'
   searchQuery: string
@@ -41,7 +42,7 @@ export interface LibraryState {
 
   loadBooks: () => Promise<void>
   importBook: (filePath: string) => Promise<Book | null>
-  importBooks: (filePaths: string[]) => Promise<void>
+  importBooks: (filePaths: string[]) => Promise<Book[]>
   deleteBook: (id: number) => Promise<void>
   setViewMode: (mode: 'grid' | 'list') => void
   setSearchQuery: (query: string) => void
@@ -63,6 +64,7 @@ export interface LibraryState {
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   books: [],
+  allBooks: [],
   isLoading: false,
   viewMode: 'grid',
   searchQuery: '',
@@ -79,15 +81,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     set({ isLoading: true })
     try {
       const { activeShelfId } = get()
+      const allBooks = (await window.electronAPI.getBooks()) as Book[]
       let books: Book[]
       if (activeShelfId !== null) {
         const bookIds = await window.electronAPI.getBooksInShelf(activeShelfId)
-        const allBooks = await window.electronAPI.getBooks()
-        books = (allBooks as Book[]).filter((b) => bookIds.includes(b.id))
+        books = allBooks.filter((b) => bookIds.includes(b.id))
       } else {
-        books = (await window.electronAPI.getBooks()) as Book[]
+        books = allBooks
       }
-      set({ books })
+      set({ books, allBooks })
     } catch (e) {
       console.error('Failed to load books:', e)
     } finally {
@@ -110,10 +112,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   importBooks: async (filePaths: string[]) => {
     try {
-      await window.electronAPI.importBooks(filePaths)
+      const imported = await window.electronAPI.importBooks(filePaths) as Book[]
       await get().loadBooks()
+      // Also add to active shelf if viewing one
+      const { activeShelfId, addBookToShelf } = get()
+      if (activeShelfId !== null) {
+        for (const book of imported) {
+          await addBookToShelf(activeShelfId, book.id)
+        }
+      }
+      return imported
     } catch (e) {
       console.error('Failed to import books:', e)
+      return []
     }
   },
 
@@ -175,11 +186,21 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   setActiveShelf: async (id: number | null) => {
     set({ activeShelfId: id })
     await get().loadBooks()
+    if (id !== null) {
+      const { books } = get()
+      set({ shelfBookIds: books.map((b) => b.id) })
+    } else {
+      set({ shelfBookIds: [] })
+    }
   },
 
   addBookToShelf: async (shelfId: number, bookId: number) => {
     try {
       await window.electronAPI.addBookToShelf(shelfId, bookId)
+      const { activeShelfId } = get()
+      if (activeShelfId === shelfId) {
+        await get().loadBooks()
+      }
     } catch (e) {
       console.error('Failed to add book to shelf:', e)
     }

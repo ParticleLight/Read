@@ -121,8 +121,8 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                   onClick={() => setTheme(t.id)}
                   className={`p-4 rounded-xl border-2 transition-all text-left ${
                     theme === t.id
-                      ? 'border-indigo-500 bg-indigo-500/10'
-                      : 'border-[var(--reader-border)] hover:border-gray-500 bg-[var(--reader-sidebar)]'
+                      ? 'border-[var(--border-focus)] bg-[var(--color-indigo-bg)]'
+                      : 'border-[var(--reader-border)] hover:border-[var(--border-focus)] bg-[var(--reader-sidebar)]'
                   }`}
                 >
                   <svg className="w-6 h-6 mb-2 text-[var(--reader-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -145,7 +145,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                   onClick={() => setFontFamily(f.value)}
                   className={`px-5 py-3 rounded-xl text-sm transition-all border-2 ${
                     fontFamily === f.value
-                      ? 'border-indigo-500 bg-indigo-500/10 text-[var(--reader-text)]'
+                      ? 'border-[var(--border-focus)] bg-[var(--color-indigo-bg)] text-[var(--reader-text)]'
                       : 'border-[var(--reader-border)] bg-[var(--reader-sidebar)] text-[var(--reader-text)] opacity-70 hover:opacity-100'
                   }`}
                   style={{ fontFamily: f.value }}
@@ -172,7 +172,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 max="32"
                 value={fontSize}
                 onChange={(e) => setFontSize(Number(e.target.value))}
-                className="flex-1 accent-indigo-500"
+                className="flex-1" style={{ accentColor: 'var(--accent)' }}
               />
               <button
                 onClick={() => setFontSize(Math.min(32, fontSize + 1))}
@@ -196,7 +196,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 step="0.1"
                 value={lineHeight}
                 onChange={(e) => setLineHeight(Number(e.target.value))}
-                className="flex-1 accent-indigo-500"
+                className="flex-1" style={{ accentColor: 'var(--accent)' }}
               />
               <span className="text-[var(--reader-text)] opacity-50 text-sm">宽松</span>
               <span className="text-[var(--reader-text)] opacity-60 w-12 text-center">{lineHeight.toFixed(1)}</span>
@@ -214,7 +214,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 max="100"
                 value={margin}
                 onChange={(e) => setMargin(Number(e.target.value))}
-                className="flex-1 accent-indigo-500"
+                className="flex-1" style={{ accentColor: 'var(--accent)' }}
               />
               <span className="text-[var(--reader-text)] opacity-50 text-sm">宽</span>
               <span className="text-[var(--reader-text)] opacity-60 w-12 text-center">{margin}px</span>
@@ -229,7 +229,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 onClick={() => setTextAlign('left')}
                 className={`flex-1 py-3 rounded-xl text-sm transition-all border-2 ${
                   textAlign === 'left'
-                    ? 'border-indigo-500 bg-indigo-500/10 text-[var(--reader-text)]'
+                    ? 'border-[var(--border-focus)] bg-[var(--color-indigo-bg)] text-[var(--reader-text)]'
                     : 'border-[var(--reader-border)] bg-[var(--reader-sidebar)] text-[var(--reader-text)] opacity-70 hover:opacity-100'
                 }`}
               >
@@ -239,7 +239,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 onClick={() => setTextAlign('justify')}
                 className={`flex-1 py-3 rounded-xl text-sm transition-all border-2 ${
                   textAlign === 'justify'
-                    ? 'border-indigo-500 bg-indigo-500/10 text-[var(--reader-text)]'
+                    ? 'border-[var(--border-focus)] bg-[var(--color-indigo-bg)] text-[var(--reader-text)]'
                     : 'border-[var(--reader-border)] bg-[var(--reader-sidebar)] text-[var(--reader-text)] opacity-70 hover:opacity-100'
                 }`}
               >

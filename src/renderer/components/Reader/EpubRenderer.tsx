@@ -275,15 +275,15 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
     const themes = renditionRef.current.themes
     switch (theme) {
       case 'dark':
-        themes.override('color', '#e2e8f0')
-        themes.override('background', '#1a1a2e')
+        themes.override('color', '#e8e8e8')
+        themes.override('background', '#1a1a1a')
         break
       case 'light':
-        themes.override('color', '#1a202c')
+        themes.override('color', '#1a1a1a')
         themes.override('background', '#ffffff')
         break
       case 'sepia':
-        themes.override('color', '#c4b494')
+        themes.override('color', '#d4c4a8')
         themes.override('background', '#1a1510')
         break
     }
