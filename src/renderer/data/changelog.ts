@@ -9,6 +9,19 @@ export interface ChangelogEntry {
 
 export const changelog: ChangelogEntry[] = [
   {
+    version: '1.8.7',
+    date: '2026-05-14',
+    changes: [
+      { type: 'feature', text: 'PDF 渲染引擎从 pdf.js 更换为原生 MuPDF（SumatraPDF 同款 C 语言引擎），性能提升 10x+' },
+      { type: 'improve', text: 'PDF 页面直接渲染为 PNG 图片显示，GPU 合成，CPU 占用大幅降低' },
+      { type: 'feature', text: '缩放功能：Ctrl+/- 和 Ctrl+滚轮，范围 0.5x-4x' },
+      { type: 'feature', text: '页面宽度自适应铺满，ResizeObserver 监听实时调整' },
+      { type: 'improve', text: '注册 book-file:// 自定义协议，本地文件直接读取零 IPC 传输开销' },
+      { type: 'improve', text: 'IntersectionObserver 页码追踪、书签、进度条等所有阅读功能正常' },
+      { type: 'fix', text: '修复 Windows 环境下 ELECTRON_RUN_AS_NODE=1 导致 Electron 无法启动的问题' },
+    ],
+  },
+  {
     version: '1.8.6',
     date: '2026-05-13',
     changes: [
