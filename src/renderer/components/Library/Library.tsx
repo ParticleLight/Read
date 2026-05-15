@@ -88,6 +88,8 @@ function BookPickerDialog({ books, shelfName, shelfBookIds, onAdd, onClose }: { 
 }
 
 export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryProps) {
+  // localBooks bypasses zustand for WebView2 compatibility (Promise .then() not firing)
+  const [localBooks, setLocalBooks] = useState<Book[] | null>(null)
   const books = useLibraryStore((s) => s.books)
   const isLoading = useLibraryStore((s) => s.isLoading)
   const viewMode = useLibraryStore((s) => s.viewMode)
@@ -117,8 +119,18 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
 
   useEffect(() => { loadBookshelves(); loadReadingTime(); loadReadingProgress() }, [loadBookshelves, loadReadingTime, loadReadingProgress])
 
+  // Register global refresh function for bridge script to call after import/delete
+  useEffect(() => {
+    window.__refreshLibrary = () => {
+      window.electronAPI.getBooks().then((bks) => setLocalBooks(bks)).catch(() => {})
+    }
+    return () => { delete window.__refreshLibrary }
+  }, [])
+
+  const effectiveBooks = localBooks !== null ? localBooks : books
+
   const sortedBooks = useMemo(() => {
-    const filtered = books.filter((book) => {
+    const filtered = effectiveBooks.filter((book) => {
       if (!searchQuery) return true
       const q = searchQuery.toLowerCase()
       return safeText(book.title).toLowerCase().includes(q) || safeText(book.author).toLowerCase().includes(q)
@@ -126,7 +138,7 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
     return [...filtered].sort((a, b) => {
       switch (sortBy) { case 'title': return safeText(a.title).localeCompare(safeText(b.title)); case 'author': return safeText(a.author).localeCompare(safeText(b.author)); case 'added_at': return new Date(b.added_at).getTime() - new Date(a.added_at).getTime(); case 'last_opened': return new Date(b.last_opened || 0).getTime() - new Date(a.last_opened || 0).getTime(); default: return 0 }
     })
-  }, [books, searchQuery, sortBy])
+  }, [effectiveBooks, searchQuery, sortBy])
 
   const handleImport = useCallback(async () => { const filePath = await window.electronAPI.openFile(); if (filePath) await importBooks([filePath]) }, [importBooks])
 

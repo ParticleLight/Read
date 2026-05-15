@@ -59,6 +59,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const arrowTimerRef = useRef<number | null>(null)
   const sessionActiveRef = useRef(false)
   const settingsOpenRef = useRef(false)
+  const bookIdRef = useRef(bookId)
 
   const showSidebar = useReaderStore((s) => s.showSidebar)
   const showControls = useReaderStore((s) => s.showControls)
@@ -83,6 +84,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const { shouldRender: renderSettings, isClosing: settingsClosing } = useAnimatedMount(showSettings, 200)
 
   useEffect(() => {
+    bookIdRef.current = bookId
     setBookId(bookId)
     const loadBook = async () => {
       try {
@@ -138,7 +140,7 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
       if (sessionActiveRef.current) {
         sessionActiveRef.current = false
         const { flushProgress } = useReaderStore.getState()
-        flushProgress().finally(() => endReadingSession())
+        flushProgress(bookIdRef.current).finally(() => endReadingSession())
       }
     }
   }, [bookId])

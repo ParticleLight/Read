@@ -276,7 +276,7 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
     switch (theme) {
       case 'dark':
         themes.override('color', '#e2e8f0')
-        themes.override('background', '#1a1a2e')
+        themes.override('background', '#1a1a1a')
         break
       case 'light':
         themes.override('color', '#1a202c')

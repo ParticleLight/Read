@@ -20,6 +20,7 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
   const zoomTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const visiblePageRef = useRef(1)
   visiblePageRef.current = visiblePage
+  const initialScrollDone = useRef(false)
 
   const progress = useReaderStore((s) => s.progress)
   const setProgress = useReaderStore((s) => s.setProgress)
@@ -110,7 +111,10 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
           const pageNum = Number(entry.target.getAttribute('data-page'))
           if (!pageNum) continue
           setVisiblePage((prev) => {
-            if (prev !== pageNum) { setProgress({ progress: (pageNum / totalPages) * 100, page: pageNum }); saveProgress() }
+            if (prev !== pageNum) {
+              setProgress({ progress: (pageNum / totalPages) * 100, page: pageNum })
+              if (initialScrollDone.current) saveProgress()
+            }
             return pageNum
           })
           renderPage(pageNum)
@@ -122,7 +126,7 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
     const els = containerRef.current.querySelectorAll('[data-page]')
     els.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [totalPages, renderPage, setProgress, saveProgress])
+  }, [totalPages, renderPage, setProgress])  // eslint-disable-line
 
   // Navigation
   useEffect(() => {
@@ -150,8 +154,16 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
 
   useEffect(() => {
     if (totalPages === 0 || !containerRef.current) return
-    requestAnimationFrame(() => { const el = containerRef.current?.querySelector(`[data-page="${progress.page || 1}"]`); if (el) el.scrollIntoView() })
-  }, [totalPages]) // eslint-disable-line react-hooks/exhaustive-deps
+    requestAnimationFrame(() => {
+      const targetPage = progress.page || 1
+      const el = containerRef.current?.querySelector(`[data-page="${targetPage}"]`)
+      if (el) {
+        el.scrollIntoView({ block: 'start' })
+        // Allow saveProgress after initial scroll + render settle
+        setTimeout(() => { initialScrollDone.current = true }, 500)
+      }
+    })
+  }, [totalPages, progress.page])
 
   // Keyboard zoom
   useEffect(() => {
@@ -181,9 +193,9 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
           return (
             <div key={pageNum} data-page={pageNum} className="relative py-2" style={{ contentVisibility: 'auto', containIntrinsicSize: `auto ${height}px` }}>
               {img ? (
-                <img src={img} alt={`Page ${pageNum}`} style={{ filter: filterStyle, width: '100%', height: 'auto' }} />
+                <img src={img} alt={`Page ${pageNum}`} style={{ filter: filterStyle, width: '100%', height: `${height}px`, objectFit: 'contain' }} />
               ) : (
-                <div style={{ width: '100%', height: `${height}px`, background: 'var(--reader-bg)' }} />
+                <div style={{ width: '100%', height: `${height}px`, background: 'var(--reader-bg)', flexShrink: 0 }} />
               )}
             </div>
           )

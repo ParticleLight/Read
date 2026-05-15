@@ -1,0 +1,52 @@
+#pragma once
+#include <string>
+#include <vector>
+#include "nlohmann/json.hpp"
+#include <wrl/client.h>
+#include <WebView2.h>
+
+using json = nlohmann::json;
+
+class BridgeServer;
+class WebViewHost;
+class DatabaseService;
+
+class ZLibraryService {
+public:
+    ZLibraryService(BridgeServer* bridge);
+    ~ZLibraryService();
+
+    json GetMirrorInfo();
+    json SwitchMirror(int index);
+    json FetchMirrors();
+
+    // Browser methods (use main WebView2)
+    json Show();
+    json Hide();
+    json Navigate(const std::string& action);
+    json GetURL();
+    json SetBounds(int x, int y, int width, int height);
+    json Logout();
+
+    void SetHost(WebViewHost* host) { m_host = host; }
+    void SetDatabase(DatabaseService* db) { m_db = db; }
+
+private:
+    void SetupDownloadHandler();
+    void StartDownloadThread(const std::string& url);
+    std::string GetDownloadPath() const;
+    void OnDownloadDone(const std::string& path, const std::string& fileName);
+
+    BridgeServer* m_bridge;
+    WebViewHost* m_host = nullptr;
+    DatabaseService* m_db = nullptr;
+    std::vector<std::string> m_mirrors;
+    int m_currentMirror = 0;
+    std::string m_currentUrl;
+    HWND m_hwnd = nullptr;
+    bool m_zlibActive = false;
+    bool m_downloadRegistered = false;
+    EventRegistrationToken m_downloadToken = {};
+};
+
+void RegisterZlibHandlers(BridgeServer* bridge, ZLibraryService* zlib);

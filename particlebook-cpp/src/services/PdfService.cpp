@@ -1,0 +1,327 @@
+#include "PdfService.h"
+#include "BridgeServer.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#include <cstdio>
+#include <cstring>
+#include <sstream>
+#include <fstream>
+#include <filesystem>
+#include <ctime>
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+static std::string WideToUtf8(LPCWSTR w)
+{
+    int len = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 0) return "";
+    std::string s(len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, &s[0], len, nullptr, nullptr);
+    while (!s.empty() && s.back() == '\0') s.pop_back();
+    return s;
+}
+
+static std::wstring Utf8ToWide(const std::string& s)
+{
+    if (s.empty()) return L"";
+    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    std::wstring w(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
+    return w;
+}
+
+static std::string Base64Encode(const void* data, size_t len)
+{
+    static const char* b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    std::string result;
+    const uint8_t* p = static_cast<const uint8_t*>(data);
+    int val = 0, valb = -6;
+    for (size_t i = 0; i < len; i++) {
+        val = (val << 8) + p[i];
+        valb += 8;
+        while (valb >= 0) {
+            result.push_back(b64[(val >> valb) & 0x3F]);
+            valb -= 6;
+        }
+    }
+    if (valb > -6) result.push_back(b64[((val << 8) >> (valb + 8)) & 0x3F]);
+    while (result.size() % 4) result.push_back('=');
+    return result;
+}
+
+// ── Constructor / Destructor ─────────────────────────────────────────
+
+PdfService::PdfService() = default;
+PdfService::~PdfService()
+{
+    // Clean up temp files
+    for (auto& doc : m_docs) {
+        std::error_code ec;
+        std::string tmpDir = doc.filePath + ".mutool_tmp";
+        std::filesystem::remove_all(Utf8ToWide(tmpDir), ec);
+    }
+}
+
+// ── Get mutool path ──────────────────────────────────────────────────
+
+std::string PdfService::GetMutoolPath()
+{
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    auto p = std::filesystem::path(exePath).parent_path() / "mutool.exe";
+    return p.string();
+}
+
+// ── Run mutool subprocess ────────────────────────────────────────────
+
+bool PdfService::RunMutool(const std::string& args, std::string& output, int timeoutMs)
+{
+    // Create temp file for output
+    wchar_t tmpPath[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmpPath);
+    wchar_t tmpFile[MAX_PATH];
+    GetTempFileNameW(tmpPath, L"mup", 0, tmpFile);
+
+    // Open temp file handle for child process stdout
+    SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
+    HANDLE hOutFile = CreateFileW(tmpFile, GENERIC_WRITE, FILE_SHARE_READ, &sa,
+                                  CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hOutFile == INVALID_HANDLE_VALUE) return false;
+
+    PROCESS_INFORMATION pi = {};
+    STARTUPINFOW si = { sizeof(STARTUPINFOW) };
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdOutput = hOutFile;
+    si.hStdError = hOutFile;
+
+    std::string cmdLine = "\"" + GetMutoolPath() + "\" " + args;
+    std::wstring wCmdLine = Utf8ToWide(cmdLine);
+
+    BOOL ok = CreateProcessW(nullptr, wCmdLine.data(), nullptr, nullptr, TRUE,
+                             CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS,
+                             nullptr, nullptr, &si, &pi);
+    CloseHandle(hOutFile);
+
+    if (!ok) {
+        DeleteFileW(tmpFile);
+        return false;
+    }
+
+    WaitForSingleObject(pi.hProcess, timeoutMs);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    // Read from temp file
+    HANDLE hReadFile = CreateFileW(tmpFile, GENERIC_READ, FILE_SHARE_READ, nullptr,
+                                   OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hReadFile != INVALID_HANDLE_VALUE) {
+        DWORD size = GetFileSize(hReadFile, nullptr);
+        if (size > 0 && size < 10 * 1024 * 1024) {
+            std::vector<char> buf(size + 1);
+            DWORD read = 0;
+            ReadFile(hReadFile, buf.data(), size, &read, nullptr);
+            buf[read] = '\0';
+            output = buf.data();
+        }
+        CloseHandle(hReadFile);
+    }
+
+    DeleteFileW(tmpFile);
+    return !output.empty();
+}
+
+// ── Open PDF ─────────────────────────────────────────────────────────
+
+PdfOpenResult PdfService::Open(const std::string& filePath)
+{
+    PdfOpenResult result = {};
+    result.id = m_nextId++;
+
+    // Debug log
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    auto logPath = std::filesystem::path(exePath).parent_path() / "debug.log";
+    auto logMsg = [&](const char* msg) {
+        FILE* lf = _wfopen(logPath.c_str(), L"a");
+        if (lf) {
+            time_t now = time(nullptr);
+            char timeBuf[32];
+            strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+            fprintf(lf, "[%s] PdfService::Open: %s\n", timeBuf, msg);
+            fclose(lf);
+        }
+    };
+
+    logMsg(("opening " + filePath).c_str());
+
+    // Check file exists
+    if (GetFileAttributesW(Utf8ToWide(filePath).c_str()) == INVALID_FILE_ATTRIBUTES) {
+        logMsg("file not found");
+        return result;
+    }
+
+    // Get page info with mutool pages
+    std::string output;
+    std::string args = "pages \"" + filePath + "\"";
+    if (!RunMutool(args, output)) {
+        logMsg("mutool failed to run");
+        return result;
+    }
+    logMsg(("mutool output: " + output).c_str());
+
+    // Parse mutool pages XML output
+    // Format: <page pagenum="0"><MediaBox l="0" b="0" r="595" t="842"/></page>
+    std::vector<PdfPageBounds> bounds;
+    size_t pos = 0;
+    while (true) {
+        size_t pageStart = output.find("<page", pos);
+        if (pageStart == std::string::npos) break;
+        size_t pageEnd = output.find("</page>", pageStart);
+        if (pageEnd == std::string::npos) break;
+        std::string pageXml = output.substr(pageStart, pageEnd + 7 - pageStart);
+
+        // Extract MediaBox attributes: r="..." t="..."
+        double w = 0, h = 0;
+        auto extractAttr = [&](const char* attr) -> double {
+            std::string search = std::string(attr) + "=\"";
+            size_t p = pageXml.find(search);
+            if (p == std::string::npos) return 0;
+            p += search.length();
+            size_t e = pageXml.find('"', p);
+            if (e == std::string::npos) return 0;
+            try { return std::stod(pageXml.substr(p, e - p)); }
+            catch (...) { return 0; }
+        };
+        w = extractAttr("r");
+        h = extractAttr("t");
+        if (w > 0 && h > 0) bounds.push_back({w, h});
+
+        pos = pageEnd + 7;
+    }
+
+    result.pageCount = static_cast<uint32_t>(bounds.size());
+    result.pageBounds = bounds;
+
+    if (result.pageCount > 0) {
+        DocEntry entry;
+        entry.id = result.id;
+        entry.filePath = filePath;
+        entry.pageCount = result.pageCount;
+        entry.pageBounds = bounds;
+        m_docs.push_back(std::move(entry));
+    }
+
+    return result;
+}
+
+// ── Render Page ──────────────────────────────────────────────────────
+
+std::string PdfService::RenderPage(int id, uint32_t pageIndex, int pixelWidth, int pixelHeight)
+{
+    DocEntry* entry = nullptr;
+    for (auto& e : m_docs) {
+        if (e.id == id) { entry = &e; break; }
+    }
+    if (!entry || pageIndex >= entry->pageCount) return "";
+
+    // Create temp directory
+    std::string tmpDir = entry->filePath + ".mutool_tmp";
+    std::filesystem::create_directories(Utf8ToWide(tmpDir));
+
+    // Generate unique filename
+    std::string outFile = tmpDir + "\\page_" + std::to_string(pageIndex) + ".png";
+
+    // Build mutool draw command
+    // Use DPI-based scaling to get proper resolution
+    double pageW = entry->pageBounds[pageIndex].width;
+    double pageH = entry->pageBounds[pageIndex].height;
+
+    // Calculate resolution to match requested pixel dimensions
+    int dpi = 150; // default reasonable DPI
+    if (pixelWidth > 0 && pageW > 0) {
+        dpi = static_cast<int>((pixelWidth / pageW) * 72.0);
+    }
+    if (dpi < 72) dpi = 72;
+    if (dpi > 300) dpi = 300;
+
+    std::string args = "draw -o \"" + outFile + "\" -r " + std::to_string(dpi)
+                     + " -F png \"" + entry->filePath + "\" "
+                     + std::to_string(pageIndex + 1);
+
+    std::string output;
+    RunMutool(args, output);
+
+    // Read the rendered PNG file
+    HANDLE hFile = CreateFileW(Utf8ToWide(outFile).c_str(), GENERIC_READ, FILE_SHARE_READ,
+                               nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return "";
+
+    LARGE_INTEGER liSize;
+    GetFileSizeEx(hFile, &liSize);
+    size_t size = static_cast<size_t>(liSize.QuadPart);
+    if (size == 0 || size > 50 * 1024 * 1024) { CloseHandle(hFile); return ""; }
+
+    std::vector<uint8_t> data(size);
+    DWORD bytesRead = 0;
+    ReadFile(hFile, data.data(), static_cast<DWORD>(size), &bytesRead, nullptr);
+    CloseHandle(hFile);
+
+    // Clean up temp file
+    DeleteFileW(Utf8ToWide(outFile).c_str());
+
+    if (bytesRead == 0) return "";
+
+    return "data:image/png;base64," + Base64Encode(data.data(), bytesRead);
+}
+
+// ── Close PDF ────────────────────────────────────────────────────────
+
+void PdfService::Close(int id)
+{
+    for (auto it = m_docs.begin(); it != m_docs.end(); ++it) {
+        if (it->id == id) {
+            std::error_code ec;
+            std::string tmpDir = it->filePath + ".mutool_tmp";
+            std::filesystem::remove_all(Utf8ToWide(tmpDir), ec);
+            m_docs.erase(it);
+            return;
+        }
+    }
+}
+
+// ── Handlers ─────────────────────────────────────────────────────────
+
+void RegisterPdfHandlers(BridgeServer* bridge, PdfService* pdf)
+{
+    bridge->RegisterMethod("pdf:open", [pdf](const json& p) -> json {
+        auto result = pdf->Open(p["filePath"].get<std::string>());
+        if (result.pageCount == 0) return json(nullptr);
+
+        json j;
+        j["id"] = result.id;
+        j["pageCount"] = result.pageCount;
+        j["pageBounds"] = json::array();
+        for (auto& b : result.pageBounds) {
+            json jb;
+            jb["width"] = b.width;
+            jb["height"] = b.height;
+            j["pageBounds"].push_back(jb);
+        }
+        return j;
+    });
+
+    bridge->RegisterMethod("pdf:renderPage", [pdf](const json& p) -> json {
+        int id = p["id"].get<int>();
+        uint32_t pageNum = p["pageNum"].get<uint32_t>();
+        int w = p.value("width", 0);
+        int h = p.value("height", 0);
+        std::string dataUrl = pdf->RenderPage(id, pageNum, w, h);
+        if (dataUrl.empty()) return json(nullptr);
+        return json(dataUrl);
+    });
+
+    bridge->RegisterMethod("pdf:close", [pdf](const json& p) -> json {
+        pdf->Close(p["id"].get<int>());
+        return json(nullptr);
+    });
+}

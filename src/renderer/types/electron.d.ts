@@ -105,4 +105,5 @@ interface ElectronAPI {
 
 declare interface Window {
   electronAPI: ElectronAPI
-}
+  __refreshLibrary?: () => void
+  _droppedFiles?: { name: string; path: string }[]

@@ -61,7 +61,7 @@ export interface ReaderState {
   setBookId: (id: number | null) => void
   setProgress: (progress: ReadingProgress) => void
   saveProgress: () => void
-  flushProgress: () => Promise<void>
+  flushProgress: (overrideBookId?: number) => Promise<void>
   loadProgress: (bookId: number) => Promise<void>
   startReadingSession: () => Promise<void>
   endReadingSession: () => Promise<void>
@@ -123,7 +123,7 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   readingStartTime: null,
   currentReadingTime: 0,
 
-  setBookId: (bookId) => set({ bookId }),
+  setBookId: (bookId) => set({ bookId, tableOfContents: [] }),
 
   setProgress: (progress) => set({ progress }),
 
@@ -144,15 +144,16 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
     }, 500)
   },
 
-  flushProgress: async () => {
+  flushProgress: async (overrideBookId?: number) => {
     if (saveTimer) {
       clearTimeout(saveTimer)
       saveTimer = null
     }
-    const { bookId, progress } = get()
+    const state = get()
+    const bookId = overrideBookId ?? state.bookId
     if (bookId === null) return
     try {
-      await window.electronAPI.updateReadingProgress(bookId, progress)
+      await window.electronAPI.updateReadingProgress(bookId, state.progress)
     } catch (e) {
       console.error('Failed to save progress:', e)
     }
