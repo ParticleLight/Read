@@ -61,51 +61,32 @@ std::string LibraryService::FindOpfPath(const std::string& epubPath)
 {
     std::string containerXml;
     if (!ReadZipEntry(epubPath, "META-INF/container.xml", containerXml)) {
-        MessageBoxA(nullptr, "FindOpfPath: cannot read container.xml", "ERROR", MB_OK);
         return "";
     }
 
     XMLDocument doc;
     if (doc.Parse(containerXml.c_str()) != XML_SUCCESS) {
-        MessageBoxA(nullptr, "FindOpfPath: XML parse failed", "ERROR", MB_OK);
         return "";
     }
-
-    // Show raw container.xml content for debugging
-    char showBuf[1024];
-    snprintf(showBuf, sizeof(showBuf), "container.xml (%zu bytes):\n%.500s",
-             containerXml.size(), containerXml.c_str());
-    MessageBoxA(nullptr, showBuf, "FindOpfPath", MB_OK);
 
     auto* container = doc.FirstChildElement("container");
-    if (!container) {
-        MessageBoxA(nullptr, "FindOpfPath: no <container>", "ERROR", MB_OK);
-        return "";
-    }
+    if (!container) return "";
     auto* rootfiles = container->FirstChildElement("rootfiles");
-    if (!rootfiles) {
-        MessageBoxA(nullptr, "FindOpfPath: no <rootfiles>", "ERROR", MB_OK);
-        return "";
-    }
+    if (!rootfiles) return "";
 
     for (auto* rf = rootfiles->FirstChildElement("rootfile"); rf; rf = rf->NextSiblingElement("rootfile")) {
         const char* fullPath = rf->Attribute("full-path");
         if (fullPath) {
-            // Check if the path ends with .opf (case insensitive)
             std::string path(fullPath);
             if (path.size() >= 4) {
                 std::string ext = path.substr(path.size() - 4);
                 for (auto& c : ext) c = static_cast<char>(std::tolower(c));
                 if (ext == ".opf") {
-                    char buf[512];
-                    snprintf(buf, sizeof(buf), "FindOpfPath: found OPF at %s", fullPath);
-                    MessageBoxA(nullptr, buf, "OK", MB_OK);
                     return std::string(fullPath);
                 }
             }
         }
     }
-    MessageBoxA(nullptr, "FindOpfPath: no OPF rootfile", "ERROR", MB_OK);
     return "";
 }
 

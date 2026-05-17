@@ -26,6 +26,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [downloadPercent, setDownloadPercent] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
+  const [downloadPath, setDownloadPath] = useState('')
   const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fonts = [
@@ -42,6 +43,9 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
 
   useEffect(() => {
     window.electronAPI.getAppVersion().then((v) => setAppVersion(v))
+    window.electronAPI.zlibGetDownloadPath().then((r: any) => {
+      if (r?.path) setDownloadPath(r.path)
+    })
   }, [])
 
   useEffect(() => {
@@ -88,6 +92,13 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
 
   const handleQuitAndInstall = () => {
     window.electronAPI.quitAndInstall()
+  }
+
+  const handleChangeDownloadPath = async () => {
+    try {
+      const result = await window.electronAPI.zlibPickDownloadFolder()
+      if (result?.path) setDownloadPath(result.path)
+    } catch {}
   }
 
   return (
@@ -244,6 +255,21 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
                 }`}
               >
                 两端对齐
+              </button>
+            </div>
+          </section>
+
+          {/* Download Path */}
+          <section>
+            <h2 className="text-lg font-semibold text-[var(--reader-text)] mb-4">Z-Library 下载位置</h2>
+            <div className="bg-[var(--reader-sidebar)] rounded-xl border border-[var(--reader-border)] p-4">
+              <p className="text-sm text-[var(--reader-text)] opacity-70 mb-3 break-all">{downloadPath || '加载中...'}</p>
+              <button
+                onClick={handleChangeDownloadPath}
+                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{ color: 'var(--color-indigo)', backgroundColor: 'var(--color-indigo-bg)' }}
+              >
+                更改文件夹
               </button>
             </div>
           </section>

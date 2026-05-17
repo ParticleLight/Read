@@ -31,6 +31,10 @@ public:
     void SetHost(WebViewHost* host) { m_host = host; }
     void SetDatabase(DatabaseService* db) { m_db = db; }
 
+    json SetDownloadPath(const std::string& path);
+    json GetDownloadPathStr() const;
+    json PickDownloadFolder();
+
 private:
     void SetupDownloadHandler();
     void StartDownloadThread(const std::string& url, const std::string& fileName = "", const std::string& cookies = "");
@@ -44,10 +48,12 @@ private:
     std::vector<std::string> m_mirrors;
     int m_currentMirror = 0;
     std::string m_currentUrl;
+    std::string m_downloadPath;
     HWND m_hwnd = nullptr;
     bool m_zlibActive = false;
     bool m_downloadRegistered = false;
     bool m_zlibDlInProgress = false;
+    bool m_zlibDlNavigating = false;
     std::string m_zlibUrlBefore;
     EventRegistrationToken m_downloadToken = {};
     EventRegistrationToken m_navToken = {};

@@ -31,9 +31,14 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
   const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
   const seekTarget = useReaderStore((s) => s.seekTarget)
   const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
+  const searchQuery = useReaderStore((s) => s.searchQuery)
+  const currentSearchIndex = useReaderStore((s) => s.currentSearchIndex)
+  const setSearchMatches = useReaderStore((s) => s.setSearchMatches)
   const theme = useSettingsStore((s) => s.theme)
 
-  // Open PDF via MuPDF
+  const pdfPageMatchesRef = useRef<number[]>([])
+
+  // Open PDF
   useEffect(() => {
     ;(async () => {
       try {
@@ -53,19 +58,15 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
     }
   }, [book.file_path])
 
-  // Set zoom with debounced re-render
   const setZoom = useCallback((z: number | ((prev: number) => number)) => {
     const next = typeof z === 'function' ? z(savedZoom) : z
     savedZoom = next
     _setZoom(next)
     if (zoomTimerRef.current) clearTimeout(zoomTimerRef.current)
-    zoomTimerRef.current = setTimeout(() => {
-      // Clear images and re-render visible pages
-      setPageImages(new Map())
-    }, 300)
+    zoomTimerRef.current = setTimeout(() => setPageImages(new Map()), 300)
   }, [])
 
-  // Compute fit-to-width scale * zoom
+  // Compute fit scale
   useEffect(() => {
     const el = containerRef.current
     if (!el || pageBounds.length === 0) return
@@ -80,7 +81,7 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
     return () => ro.disconnect()
   }, [pageBounds, zoom])
 
-  // Render a single page via MuPDF
+  // Render page via mutool → PNG url
   const renderPage = useCallback(async (pageNum: number) => {
     const docId = docIdRef.current
     if (docId == null || renderingPages.current.has(pageNum)) return
@@ -93,8 +94,10 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
       const dpr = Math.min(window.devicePixelRatio || 1, 2)
       const w = Math.round(bounds.width * fitScale * dpr)
       const h = Math.round(bounds.height * fitScale * dpr)
-      const dataUrl = await window.electronAPI.pdfRenderPage(docId, pageNum - 1, w, h)
-      setPageImages((prev) => { const n = new Map(prev); n.set(pageNum, dataUrl); return n })
+      const url = await window.electronAPI.pdfRenderPage(docId, pageNum - 1, w, h)
+      if (url) {
+        setPageImages((prev) => { const n = new Map(prev); n.set(pageNum, url); return n })
+      }
     } catch (e) {
       console.error('Page render failed:', pageNum, e)
     } finally {
@@ -102,7 +105,7 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
     }
   }, [pageBounds, fitScale, pageImages])
 
-  // IntersectionObserver
+  // IntersectionObserver for lazy rendering
   useEffect(() => {
     if (!containerRef.current || totalPages === 0) return
     const observer = new IntersectionObserver((entries) => {
@@ -126,7 +129,7 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
     const els = containerRef.current.querySelectorAll('[data-page]')
     els.forEach((el) => observer.observe(el))
     return () => observer.disconnect()
-  }, [totalPages, renderPage, setProgress])  // eslint-disable-line
+  }, [totalPages, renderPage, setProgress])
 
   // Navigation
   useEffect(() => {
@@ -159,7 +162,6 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
       const el = containerRef.current?.querySelector(`[data-page="${targetPage}"]`)
       if (el) {
         el.scrollIntoView({ block: 'start' })
-        // Allow saveProgress after initial scroll + render settle
         setTimeout(() => { initialScrollDone.current = true }, 500)
       }
     })
@@ -180,6 +182,40 @@ export function PdfRenderer({ book, content: _content, bookId }: PdfRendererProp
     const h = (e: WheelEvent) => { if (e.ctrlKey) { e.preventDefault(); setZoom((s: number) => Math.max(0.5, Math.min(4, s + (e.deltaY > 0 ? -0.1 : 0.1)))) } }
     el.addEventListener('wheel', h, { passive: false }); return () => el.removeEventListener('wheel', h)
   }, [setZoom])
+
+  // PDF text search
+  useEffect(() => {
+    if (!searchQuery || !searchQuery.trim() || docIdRef.current == null) {
+      pdfPageMatchesRef.current = []
+      return
+    }
+    const q = searchQuery.trim().toLowerCase()
+    ;(async () => {
+      try {
+        const result = await window.electronAPI.pdfExtractText(docIdRef.current!)
+        if (!result?.pages) return
+        const matches: number[] = []
+        for (const p of result.pages) {
+          if (p.text && p.text.toLowerCase().includes(q)) {
+            matches.push(p.pageNum)
+          }
+        }
+        pdfPageMatchesRef.current = matches
+        setSearchMatches(matches)
+      } catch {}
+    })()
+  }, [searchQuery])
+
+  // Navigate to search match
+  useEffect(() => {
+    const matches = pdfPageMatchesRef.current
+    if (matches.length === 0 || currentSearchIndex < 0 || currentSearchIndex >= matches.length) return
+    const targetPage = matches[currentSearchIndex] + 1
+    const el = containerRef.current?.querySelector(`[data-page="${targetPage}"]`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  }, [currentSearchIndex])
 
   const filterStyle = theme === 'dark' ? 'invert(1) hue-rotate(180deg) brightness(0.9)' : theme === 'sepia' ? 'invert(1) hue-rotate(180deg) sepia(0.4) brightness(0.7)' : 'none'
 

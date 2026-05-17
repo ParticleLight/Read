@@ -6,11 +6,10 @@ import { BookList } from './BookList'
 import { BookShelfPanel } from './BookShelfPanel'
 import { safeText } from '../../utils/safeText'
 
-const StatisticsPanel = lazy(() => import('./StatisticsPanel').then(m => ({ default: m.StatisticsPanel })))
 const ChangelogPanel = lazy(() => import('./ChangelogPanel').then(m => ({ default: m.ChangelogPanel })))
 const BookSourcePanel = lazy(() => import('./BookSourcePanel').then(m => ({ default: m.BookSourcePanel })))
 
-interface LibraryProps { onOpenBook: (bookId: number) => void; onOpenSettings: () => void; onOpenZLibrary: () => void }
+interface LibraryProps { onOpenBook: (bookId: number) => void; onOpenSettings: () => void; onOpenZLibrary: () => void; onOpenStatistics: () => void }
 
 function BookPickerDialog({ books, shelfName, shelfBookIds, onAdd, onClose }: { books: Book[]; shelfName: string; shelfBookIds: number[]; onAdd: (ids: number[]) => void; onClose: () => void }) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -87,7 +86,7 @@ function BookPickerDialog({ books, shelfName, shelfBookIds, onAdd, onClose }: { 
   )
 }
 
-export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryProps) {
+export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary, onOpenStatistics }: LibraryProps) {
   // localBooks bypasses zustand for WebView2 compatibility (Promise .then() not firing)
   const [localBooks, setLocalBooks] = useState<Book[] | null>(null)
   const books = useLibraryStore((s) => s.books)
@@ -109,7 +108,6 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
   const loadReadingTime = useLibraryStore((s) => s.loadReadingTime)
   const loadReadingProgress = useLibraryStore((s) => s.loadReadingProgress)
   const [isDragOver, setIsDragOver] = useState(false)
-  const [showStatistics, setShowStatistics] = useState(false)
   const [showChangelog, setShowChangelog] = useState(false)
   const [showBookSource, setShowBookSource] = useState(false)
   const [showMore, setShowMore] = useState(false)
@@ -223,7 +221,7 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
 <button onClick={() => { loadBooks(); setShowMore(false) }} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 whitespace-nowrap transition-colors" style={{ color: 'var(--text-primary)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg> 刷新书架
                 </button>
-                <button onClick={() => { setShowStatistics(true); setShowMore(false) }} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 whitespace-nowrap transition-colors" style={{ color: 'var(--text-primary)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+                <button onClick={() => { onOpenStatistics(); setShowMore(false) }} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 whitespace-nowrap transition-colors" style={{ color: 'var(--text-primary)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                   <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> 阅读统计
                 </button>
                 <button onClick={() => { setShowChangelog(true); setShowMore(false) }} className="w-full text-left px-4 py-2 text-sm flex items-center gap-2 whitespace-nowrap transition-colors" style={{ color: 'var(--text-primary)' }} onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
@@ -290,7 +288,6 @@ export function Library({ onOpenBook, onOpenSettings, onOpenZLibrary }: LibraryP
         </div>
       </main>
 
-      {showStatistics && <Suspense fallback={null}><StatisticsPanel onClose={() => setShowStatistics(false)} isClosing={false} /></Suspense>}
       {showChangelog && <Suspense fallback={null}><ChangelogPanel onClose={() => setShowChangelog(false)} isClosing={false} /></Suspense>}
       {showBookSource && <Suspense fallback={null}><BookSourcePanel onClose={() => setShowBookSource(false)} isClosing={false} /></Suspense>}
 

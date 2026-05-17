@@ -79,7 +79,11 @@ void WebViewHost::RunMessageLoop()
     MSG msg = {};
     while (GetMessage(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        try {
+            DispatchMessage(&msg);
+        } catch (...) {
+            // Silently ignore unhandled exceptions
+        }
     }
 }
 
@@ -223,7 +227,7 @@ void WebViewHost::OnWebViewCreated(HRESULT hr, ICoreWebView2Controller* controll
 
     // Settings
     m_webview->get_Settings(&m_settings);
-    m_settings->put_AreDevToolsEnabled(TRUE);
+    m_settings->put_AreDevToolsEnabled(FALSE);
     m_settings->put_IsScriptEnabled(TRUE);
 
     // Resize to fill window

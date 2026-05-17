@@ -32,11 +32,10 @@ static std::string WideToUtf8(LPCWSTR w)
     return s;
 }
 
-// ── MOBI → text conversion via mutool ────────────────────────────────
+// ── MOBI → text via mutool convert ────────────────────────────────────
 
-static std::string ConvertMobiToHtml(const std::string& filePath)
+static std::string ConvertMobiToText(const std::string& filePath)
 {
-    // Check file extension
     std::string ext;
     size_t dot = filePath.rfind('.');
     if (dot != std::string::npos) {
@@ -50,32 +49,30 @@ static std::string ConvertMobiToHtml(const std::string& filePath)
     GetModuleFileNameW(nullptr, exePathBuf, MAX_PATH);
     auto mutoolPath = (std::filesystem::path(exePathBuf).parent_path() / "mutool.exe").wstring();
 
-    // Create temp file for output
+    // Create temp file for text output
     wchar_t tmpPath[MAX_PATH], tmpFile[MAX_PATH];
     GetTempPathW(MAX_PATH, tmpPath);
     GetTempFileNameW(tmpPath, L"mbt", 0, tmpFile);
     DeleteFileW(tmpFile);
     std::wstring tmpFileExt = std::wstring(tmpFile) + L".txt";
 
-    // Build command: mutool convert -F text -o <tmp.txt> <file>
     std::wstring cmdLine = L"\"" + mutoolPath + L"\" convert -F text -o \"" + tmpFileExt + L"\" \"" + Utf8ToWide(filePath) + L"\"";
 
-    SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
     PROCESS_INFORMATION pi = {};
     STARTUPINFOW si = { sizeof(STARTUPINFOW) };
-    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_HIDE;
 
-    BOOL ok = CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, FALSE,
-                             CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS,
-                             nullptr, nullptr, &si, &pi);
-    if (!ok) return "";
+    if (!CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, FALSE,
+                         CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS,
+                         nullptr, nullptr, &si, &pi))
+        return "";
 
     WaitForSingleObject(pi.hProcess, 30000);
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    // Read converted HTML
+    // Read text output
     HANDLE hFile = CreateFileW(tmpFileExt.c_str(), GENERIC_READ, FILE_SHARE_READ,
                                 nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hFile == INVALID_HANDLE_VALUE) return "";
@@ -93,7 +90,36 @@ static std::string ConvertMobiToHtml(const std::string& filePath)
 
     if (bytesRead == 0) return "";
     while (!text.empty() && text.back() == '\0') text.pop_back();
-    return text;
+
+    // Normalize line breaks: merge single newlines within paragraphs into spaces,
+    // keep double newlines as paragraph separators. This allows text to reflow.
+    // First, normalize \r\n → \n
+    std::string normalized;
+    normalized.reserve(text.size());
+    for (size_t i = 0; i < text.size(); i++) {
+        if (text[i] == '\r' && i + 1 < text.size() && text[i + 1] == '\n') {
+            normalized += '\n'; i++; // skip \n
+        } else if (text[i] == '\r') {
+            normalized += '\n';
+        } else {
+            normalized += text[i];
+        }
+    }
+    // Merge single \n to space, keep \n\n as paragraph break
+    std::string result;
+    result.reserve(normalized.size());
+    for (size_t i = 0; i < normalized.size(); i++) {
+        if (normalized[i] == '\n') {
+            if (i + 1 < normalized.size() && normalized[i + 1] == '\n') {
+                result += "\n\n"; i++; // paragraph break
+            } else {
+                result += ' '; // single newline → space
+            }
+        } else {
+            result += normalized[i];
+        }
+    }
+    return result;
 }
 
 static std::string DetectFormat(const std::string& path)
@@ -123,7 +149,11 @@ static std::string GetFileName(const std::string& path)
     size_t fs = path.rfind('/');
     size_t slash = bs;
     if (fs != std::string::npos && (bs == std::string::npos || fs > bs)) slash = fs;
-    return (slash != std::string::npos) ? path.substr(slash + 1) : path;
+    std::string name = (slash != std::string::npos) ? path.substr(slash + 1) : path;
+    // Strip extension
+    size_t dot = name.rfind('.');
+    if (dot != std::string::npos) name = name.substr(0, dot);
+    return name;
 }
 
 static int64_t GetFileSizeSafe(const std::string& path)
@@ -228,11 +258,61 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
             if (cached) return json(*cached);
         }
 
-        // For MOBI files, convert to text via mutool first
-        std::string mobiText = ConvertMobiToHtml(path);
+        // For large / comic files, serve via virtual host URL instead of JSON byte array
+        std::string format = DetectFormat(path);
+        bool isLarge = false;
+        {
+            int wl = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+            if (wl > 0) {
+                std::wstring wp(wl, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, &wp[0], wl);
+                WIN32_FILE_ATTRIBUTE_DATA attrs;
+                if (GetFileAttributesExW(wp.c_str(), GetFileExInfoStandard, &attrs)) {
+                    ULONGLONG sz = ((ULONGLONG)attrs.nFileSizeHigh << 32) | attrs.nFileSizeLow;
+                    if (sz > 5 * 1024 * 1024) isLarge = true;
+                }
+            }
+        }
+        if (isLarge || format == "cbz" || format == "cbr") {
+            // Copy to renderer temp dir
+            wchar_t exePath[MAX_PATH];
+            GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+            auto rendererDir = (std::filesystem::path(exePath).parent_path() / "renderer" / "_pb_files").wstring();
+            CreateDirectoryW(rendererDir.c_str(), nullptr);
+
+            std::string fn;
+            size_t bs = path.rfind('\\');
+            size_t fs = path.rfind('/');
+            size_t slash = (fs != std::string::npos && (bs == std::string::npos || fs > bs)) ? fs : bs;
+            fn = (slash != std::string::npos) ? path.substr(slash + 1) : "file";
+
+            std::wstring dest = rendererDir + L"\\" + Utf8ToWide(fn);
+            if (!CopyFileW(Utf8ToWide(path).c_str(), dest.c_str(), FALSE)) {
+                // Fall through to normal read
+            } else {
+                std::string url = "http://particlebook.app/_pb_files/" + fn;
+                json r;
+                r["_pb_url"] = url;
+                return r;
+            }
+        }
+
+        // For MOBI files, extract text via mutool (cached)
+        std::string mobiText = ConvertMobiToText(path);
         if (!mobiText.empty()) {
+            int64_t ft = 0;
+            int wl = MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, nullptr, 0);
+            if (wl > 0) {
+                std::wstring wp(wl, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, path.c_str(), -1, &wp[0], wl);
+                WIN32_FILE_ATTRIBUTE_DATA attrs;
+                if (GetFileAttributesExW(wp.c_str(), GetFileExInfoStandard, &attrs)) {
+                    ft = (static_cast<int64_t>(attrs.ftLastWriteTime.dwHighDateTime) << 32)
+                       | attrs.ftLastWriteTime.dwLowDateTime;
+                }
+            }
             std::vector<uint8_t> data(mobiText.begin(), mobiText.end());
-            if (cache) cache->Put(path, data, 0);
+            if (cache) cache->Put(path, data, ft);
             return json(data);
         }
 
@@ -246,7 +326,6 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
                                    nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
         if (hFile == INVALID_HANDLE_VALUE) return json(nullptr);
 
-        // Get file time for cache validation
         FILETIME ftWrite;
         GetFileTime(hFile, nullptr, nullptr, &ftWrite);
         int64_t fileTime = (static_cast<int64_t>(ftWrite.dwHighDateTime) << 32)
@@ -328,6 +407,10 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
                     DebugLog("book:import: rendering PDF cover");
                     em.coverPath = lib.ExtractPdfCover(path);
                     DebugLog("book:import: PDF cover done");
+                } else if (format == "cbz" || format == "cbr") {
+                    DebugLog("book:import: rendering CBZ/CBR cover");
+                    em.coverPath = lib.ExtractPdfCover(path);
+                    DebugLog("book:import: CBZ/CBR cover done");
                 } else if (format == "fb2") {
                     lib.ExtractFb2Metadata(path, em);
                 }
@@ -390,46 +473,73 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
         if (book.is_null()) return json(nullptr);
 
         std::string coverPath = book.value("cover_path", "");
+
+        // Try cached cover first
         if (!coverPath.empty()) {
-            // Check existence via Win32 API
             int wlen = MultiByteToWideChar(CP_UTF8, 0, coverPath.c_str(), -1, nullptr, 0);
-            if (wlen <= 0) return json(nullptr);
-            std::wstring wpath(wlen, L'\0');
-            MultiByteToWideChar(CP_UTF8, 0, coverPath.c_str(), -1, &wpath[0], wlen);
-
-            HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ,
-                                       nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-            if (hFile == INVALID_HANDLE_VALUE) return json(nullptr);
-
-            LARGE_INTEGER liSize;
-            GetFileSizeEx(hFile, &liSize);
-            size_t size = static_cast<size_t>(liSize.QuadPart);
-            std::vector<unsigned char> data(size);
-            DWORD bytesRead = 0;
-            ReadFile(hFile, data.data(), static_cast<DWORD>(size), &bytesRead, nullptr);
-            CloseHandle(hFile);
-            data.resize(bytesRead);
-
-            static const char* b64 =
-                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-            std::string ext;
-            size_t dot = coverPath.rfind('.');
-            if (dot != std::string::npos) {
-                ext = coverPath.substr(dot);
-                for (auto& c : ext) c = static_cast<char>(std::tolower(c));
+            if (wlen > 0) {
+                std::wstring wpath(wlen, L'\0');
+                MultiByteToWideChar(CP_UTF8, 0, coverPath.c_str(), -1, &wpath[0], wlen);
+                HANDLE hFile = CreateFileW(wpath.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                           nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+                if (hFile != INVALID_HANDLE_VALUE) {
+                    LARGE_INTEGER liSize;
+                    GetFileSizeEx(hFile, &liSize);
+                    size_t size = static_cast<size_t>(liSize.QuadPart);
+                    std::vector<unsigned char> data(size);
+                    DWORD bytesRead = 0;
+                    ReadFile(hFile, data.data(), static_cast<DWORD>(size), &bytesRead, nullptr);
+                    CloseHandle(hFile);
+                    data.resize(bytesRead);
+                    static const char* b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                    std::string ext;
+                    size_t dot = coverPath.rfind('.');
+                    if (dot != std::string::npos) { ext = coverPath.substr(dot); for (auto& c : ext) c = (char)tolower((unsigned char)c); }
+                    std::string prefix = "data:image/" + std::string(ext == ".png" ? "png" : "jpeg") + ";base64,";
+                    std::string b64data;
+                    int val = 0, valb = -6;
+                    for (unsigned char c : data) { val = (val << 8) + c; valb += 8; while (valb >= 0) { b64data.push_back(b64[(val >> valb) & 0x3F]); valb -= 6; } }
+                    if (valb > -6) b64data.push_back(b64[((val << 8) >> (valb + 8)) & 0x3F]);
+                    while (b64data.size() % 4) b64data.push_back('=');
+                    return json(prefix + b64data);
+                }
             }
-            std::string prefix = "data:image/" +
-                std::string(ext == ".png" ? "png" : "jpeg") + ";base64,";
-            std::string b64data;
-            int val = 0, valb = -6;
-            for (unsigned char c : data) {
-                val = (val << 8) + c;
-                valb += 8;
-                while (valb >= 0) { b64data.push_back(b64[(val >> valb) & 0x3F]); valb -= 6; }
+        }
+
+        // On-demand cover generation
+        std::string filePath = book.value("file_path", "");
+        std::string format = book.value("format", "");
+        if (!filePath.empty()) {
+            LibraryService lib;
+            ExtractedMetadata em;
+            std::string newCover;
+            if (format == "epub") {
+                lib.ExtractEpubMetadata(filePath, em);
+                if (!em.coverFile.empty()) newCover = lib.ExtractEpubCover(filePath, em.coverFile);
+            } else if (format == "pdf") {
+                newCover = lib.ExtractPdfCover(filePath);
             }
-            if (valb > -6) b64data.push_back(b64[((val << 8) >> (valb + 8)) & 0x3F]);
-            while (b64data.size() % 4) b64data.push_back('=');
-            return json(prefix + b64data);
+            if (!newCover.empty()) {
+                int wl = MultiByteToWideChar(CP_UTF8, 0, newCover.c_str(), -1, nullptr, 0);
+                if (wl > 0) {
+                    std::wstring wp(wl, L'\0');
+                    MultiByteToWideChar(CP_UTF8, 0, newCover.c_str(), -1, &wp[0], wl);
+                    HANDLE hf = CreateFileW(wp.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+                    if (hf != INVALID_HANDLE_VALUE) {
+                        LARGE_INTEGER sz; GetFileSizeEx(hf, &sz);
+                        std::vector<unsigned char> d((size_t)sz.QuadPart);
+                        DWORD br; ReadFile(hf, d.data(), (DWORD)sz.QuadPart, &br, nullptr); CloseHandle(hf);
+                        d.resize(br);
+                        static const char* b64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+                        std::string pfx = "data:image/jpeg;base64,", bd;
+                        int v = 0, vb = -6;
+                        for (unsigned char c : d) { v = (v << 8) + c; vb += 8; while (vb >= 0) { bd.push_back(b64[(v >> vb) & 0x3F]); vb -= 6; } }
+                        if (vb > -6) bd.push_back(b64[((v << 8) >> (vb + 8)) & 0x3F]);
+                        while (bd.size() % 4) bd.push_back('=');
+                        return json(pfx + bd);
+                    }
+                }
+            }
         }
         return json(nullptr);
     });

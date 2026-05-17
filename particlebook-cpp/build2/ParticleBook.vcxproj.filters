@@ -57,6 +57,11 @@
     <CustomBuild Include="F:\VScode\Read\particlebook-cpp\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ResourceCompile Include="F:\VScode\Read\particlebook-cpp\src\ParticleBook.rc">
+      <Filter>Source Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
     <Filter Include="Source Files">
       <UniqueIdentifier>{CAE7BF2C-BF31-34D0-A2B9-DCAEB665C8D3}</UniqueIdentifier>
     </Filter>

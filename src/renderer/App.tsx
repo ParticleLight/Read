@@ -7,8 +7,9 @@ import { useLibraryStore } from './stores/libraryStore'
 
 const GlobalSettings = lazy(() => import('./components/Settings/GlobalSettings').then(m => ({ default: m.GlobalSettings })))
 const ZLibraryView = lazy(() => import('./components/ZLibrary/ZLibraryView').then(m => ({ default: m.ZLibraryView })))
+const StatisticsPage = lazy(() => import('./components/Library/StatisticsPage').then(m => ({ default: m.StatisticsPage })))
 
-type Page = 'library' | 'settings' | 'zlibrary'
+type Page = 'library' | 'settings' | 'zlibrary' | 'statistics'
 
 const PageLoader = () => (
   <div className="h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
@@ -84,9 +85,19 @@ export default function App() {
     )
   }
 
+  if (page === 'statistics') {
+    return (
+      <PageShell show key={`statistics-${pageKey}`}>
+        <Suspense fallback={<PageLoader />}>
+          <StatisticsPage onBack={() => navigateTo('library')} />
+        </Suspense>
+      </PageShell>
+    )
+  }
+
   return (
     <PageShell show key="library">
-      <Library onOpenBook={openBook} onOpenSettings={() => navigateTo('settings')} onOpenZLibrary={() => navigateTo('zlibrary')} />
+      <Library onOpenBook={openBook} onOpenSettings={() => navigateTo('settings')} onOpenZLibrary={() => navigateTo('zlibrary')} onOpenStatistics={() => navigateTo('statistics')} />
     </PageShell>
   )
 }

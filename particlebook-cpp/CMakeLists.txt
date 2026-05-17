@@ -30,6 +30,7 @@ add_executable(ParticleBook WIN32
     third_party/miniz.c
     third_party/miniz_tdef.c
     third_party/miniz_tinfl.c
+    src/ParticleBook.rc
 )
 
 # Enable /EHa so catch(...) can handle SEH exceptions (access violations etc.)

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef, useMemo, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 import type { Book } from '../../stores/libraryStore'
@@ -8,6 +9,14 @@ interface TextRendererProps {
   content: Uint8Array
   bookId: number
 }
+
+const HIGHLIGHT_COLORS = [
+  { value: 'rgba(234,179,8,0.45)', label: '黄' },
+  { value: 'rgba(59,130,246,0.45)', label: '蓝' },
+  { value: 'rgba(34,197,94,0.45)', label: '绿' },
+  { value: 'rgba(239,68,68,0.45)', label: '红' },
+  { value: 'rgba(168,85,247,0.45)', label: '紫' },
+]
 
 export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -24,9 +33,61 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const seekTarget = useReaderStore((s) => s.seekTarget)
   const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
 
+  const highlights = useReaderStore((s) => s.highlights)
+  const addHighlight = useReaderStore((s) => s.addHighlight)
+  const [highlightPopup, setHighlightPopup] = useState<{ x: number; y: number; text: string; offset: number } | null>(null)
+
+  // Full-text search
+  const searchQuery = useReaderStore((s) => s.searchQuery)
+  const searchMatches = useReaderStore((s) => s.searchMatches)
+  const currentSearchIndex = useReaderStore((s) => s.currentSearchIndex)
+  const setSearchMatches = useReaderStore((s) => s.setSearchMatches)
+
   useEffect(() => {
-    setTableOfContents([])
-  }, [setTableOfContents])
+    const lines = text.split('\n')
+    const chapterRe = /^第[一二三四五六七八九十百千\d]+[章节]/
+    const enChapterRe = /^Chapter\s+\d+/i
+    const potential: { line: number; label: string }[] = []
+    lines.forEach((line, i) => {
+      const trimmed = line.trim()
+      if (chapterRe.test(trimmed) || enChapterRe.test(trimmed)) {
+        potential.push({ line: i, label: trimmed })
+      }
+    })
+    let clusterEnd = -1
+    for (let j = 1; j < potential.length; j++) {
+      if (potential[j].line - potential[j - 1].line <= 2) {
+        clusterEnd = j
+      } else {
+        break
+      }
+    }
+    const toc = potential.slice(clusterEnd + 1)
+      .filter((item) => item.label.length <= 20)
+      .map((item, i) => {
+        let charOffset = 0
+        for (let k = 0; k < item.line; k++) charOffset += lines[k].length + 1
+        return { label: item.label, page: (charOffset / text.length) * 100, id: `toc-${charOffset}`, level: 2 }
+      })
+    setTableOfContents(toc)
+  }, [text, setTableOfContents])
+
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length === 0) {
+      if (searchMatches.length > 0) setSearchMatches([])
+      return
+    }
+    const q = searchQuery.trim()
+    let escaped = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const matches: number[] = []
+    let re: RegExp
+    try { re = new RegExp(escaped, 'gi') } catch { return }
+    let m: RegExpExecArray | null
+    while ((m = re.exec(text)) !== null) {
+      matches.push(m.index)
+    }
+    setSearchMatches(matches)
+  }, [searchQuery, text])
 
   const fontSize = useSettingsStore((s) => s.fontSize)
   const fontFamily = useSettingsStore((s) => s.fontFamily)
@@ -35,11 +96,158 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   const textAlign = useSettingsStore((s) => s.textAlign)
 
   useEffect(() => {
+    if (!containerRef.current) return
+    const container = containerRef.current
+    const handleMouseUp = (e: MouseEvent) => {
+      setTimeout(() => {
+        const selection = window.getSelection()
+        if (!selection || selection.isCollapsed) return
+        const selectedText = selection.toString().trim()
+        if (!selectedText || selectedText.length < 1) return
+        if (!container.contains(selection.anchorNode)) return
+        // Calculate character offset of selection start
+        const contentDiv = container.querySelector('.reader-content') || container
+        const walker = document.createTreeWalker(contentDiv, NodeFilter.SHOW_TEXT)
+        let curOff = 0
+        let selOff = -1
+        while (walker.nextNode()) {
+          const node = walker.currentNode as Text
+          if (node === selection.anchorNode) {
+            selOff = curOff + selection.anchorOffset
+            break
+          }
+          curOff += (node.textContent || '').length
+        }
+        setHighlightPopup({ x: e.clientX, y: e.clientY, text: selectedText, offset: selOff >= 0 ? selOff : 0 })
+      }, 0)
+    }
+    container.addEventListener('mouseup', handleMouseUp)
+    return () => container.removeEventListener('mouseup', handleMouseUp)
+  }, [])
+
+  const handleAddHighlight = useCallback((color: string) => {
+    if (!highlightPopup) return
+    const { text: selectedText, offset } = highlightPopup
+    const page = (offset / text.length) * 100
+    addHighlight({ book_id: bookId, text: selectedText, color, page, cfi: `pos-${offset}` })
+    setHighlightPopup(null)
+  }, [highlightPopup, text, bookId, addHighlight])
+
+  const highlightedContent = useMemo(() => {
+    const ranges: { start: number; end: number; color: string; type: 'highlight' | 'search' | 'searchActive' }[] = []
+
+    // User highlights
+    for (const hl of highlights) {
+      if (hl.cfi && String(hl.cfi).startsWith('pos-')) {
+        const start = parseInt(String(hl.cfi).slice(4), 10)
+        if (!isNaN(start) && start >= 0 && start < text.length) {
+          const end = start + hl.text.length
+          if (text.slice(start, end) === hl.text) {
+            ranges.push({ start, end, color: hl.color, type: 'highlight' })
+          }
+        }
+      } else {
+        let pos = 0
+        while (pos < text.length) {
+          const idx = text.indexOf(hl.text, pos)
+          if (idx === -1) break
+          ranges.push({ start: idx, end: idx + hl.text.length, color: hl.color, type: 'highlight' })
+          pos = idx + hl.text.length
+        }
+      }
+    }
+
+    // Search matches
+    if (searchQuery && searchMatches.length > 0) {
+      const qLen = searchQuery.trim().length
+      for (let i = 0; i < searchMatches.length; i++) {
+        const start = searchMatches[i]
+        ranges.push({
+          start,
+          end: start + qLen,
+          color: i === currentSearchIndex ? 'rgba(251,191,36,0.55)' : 'rgba(251,191,36,0.3)',
+          type: i === currentSearchIndex ? 'searchActive' : 'search',
+        })
+      }
+    }
+
+    if (ranges.length === 0) return text
+
+    ranges.sort((a, b) => a.start - b.start)
+
+    // Merge overlapping ranges, preferring highlight > searchActive > search
+    const merged: typeof ranges = []
+    for (const r of ranges) {
+      const last = merged[merged.length - 1]
+      if (last && r.start <= last.end) {
+        last.end = Math.max(last.end, r.end)
+        if (r.type === 'highlight' || (r.type === 'searchActive' && last.type === 'search')) {
+          last.type = r.type
+          last.color = r.color
+        }
+      } else {
+        merged.push({ ...r })
+      }
+    }
+
+    const parts: (string | JSX.Element)[] = []
+    let lastEnd = 0
+    for (const r of merged) {
+      if (r.start > lastEnd) parts.push(text.slice(lastEnd, r.start))
+      const style: React.CSSProperties = r.type === 'highlight'
+        ? { backgroundColor: r.color, borderRadius: '2px', color: 'inherit' }
+        : r.type === 'searchActive'
+          ? { backgroundColor: 'rgba(251,191,36,0.55)', borderRadius: '2px', color: 'inherit', outline: '2px solid rgba(251,191,36,0.8)', outlineOffset: '1px' }
+          : { backgroundColor: 'rgba(251,191,36,0.3)', borderRadius: '2px', color: 'inherit' }
+      parts.push(
+        <mark key={`${r.start}`} style={style}>
+          {text.slice(r.start, r.end)}
+        </mark>
+      )
+      lastEnd = r.end
+    }
+    if (lastEnd < text.length) parts.push(text.slice(lastEnd))
+    return parts
+  }, [text, highlights, searchQuery, searchMatches, currentSearchIndex])
+
+  useEffect(() => {
     if (!navigateTarget || !containerRef.current) return
-    if (navigateTarget.page) {
-      const container = containerRef.current
-      const scrollTop = (navigateTarget.page / 100) * container.scrollHeight
-      container.scrollTop = scrollTop
+    const container = containerRef.current
+    // Extract character offset from id (e.g. "toc-12345")
+    let charOffset = -1
+    if (navigateTarget.cfi && String(navigateTarget.cfi).startsWith('toc-')) {
+      const off = parseInt(String(navigateTarget.cfi).slice(4), 10)
+      if (!isNaN(off)) charOffset = off
+    }
+    if (charOffset >= 0) {
+      // Find the text node containing this character offset
+      const contentDiv = container.querySelector('.reader-content') || container
+      const walker = document.createTreeWalker(contentDiv, NodeFilter.SHOW_TEXT)
+      let curOff = 0
+      let targetNode: Text | null = null
+      let targetIdx = 0
+      while (walker.nextNode()) {
+        const node = walker.currentNode as Text
+        const len = (node.textContent || '').length
+        if (curOff + len > charOffset) {
+          targetNode = node
+          targetIdx = charOffset - curOff
+          break
+        }
+        curOff += len
+      }
+      if (targetNode) {
+        const range = document.createRange()
+        range.setStart(targetNode, Math.min(targetIdx, (targetNode.textContent || '').length))
+        range.collapse(true)
+        const rect = range.getClientRects()[0]
+        if (rect) {
+          container.scrollTop += rect.top - container.getBoundingClientRect().top - 80
+        }
+      }
+    } else if (navigateTarget.page) {
+      const maxScroll = container.scrollHeight - container.clientHeight
+      container.scrollTop = (navigateTarget.page / 100) * maxScroll
     }
     clearNavigateTarget()
   }, [navigateTarget])
@@ -51,7 +259,6 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
     clearTurnPage()
   }, [turnPageDelta])
 
-  // Handle seek from progress bar
   useEffect(() => {
     if (seekTarget === null || !containerRef.current) return
     const container = containerRef.current
@@ -60,26 +267,54 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
     clearSeekTarget()
   }, [seekTarget])
 
+  // Scroll to current search match
+  useEffect(() => {
+    if (searchMatches.length === 0 || currentSearchIndex < 0 || !containerRef.current) return
+    const offset = searchMatches[currentSearchIndex]
+    if (offset === undefined) return
+    const container = containerRef.current
+    const contentDiv = container.querySelector('.reader-content') || container
+    const walker = document.createTreeWalker(contentDiv, NodeFilter.SHOW_TEXT)
+    let curOff = 0
+    let targetNode: Text | null = null
+    let targetIdx = 0
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text
+      const len = (node.textContent || '').length
+      if (curOff + len > offset) {
+        targetNode = node
+        targetIdx = offset - curOff
+        break
+      }
+      curOff += len
+    }
+    if (targetNode) {
+      const range = document.createRange()
+      range.setStart(targetNode, Math.min(targetIdx, (targetNode.textContent || '').length))
+      range.collapse(true)
+      const rect = range.getClientRects()[0]
+      if (rect) {
+        container.scrollTop += rect.top - container.getBoundingClientRect().top - container.clientHeight / 3
+      }
+    }
+  }, [currentSearchIndex])
+
   useEffect(() => {
     if (!containerRef.current) return
     const container = containerRef.current
-
     let saveTimer: ReturnType<typeof setTimeout> | null = null
     const handleScroll = () => {
       const scrollTop = container.scrollTop
       const scrollHeight = container.scrollHeight - container.clientHeight
       const progressPercent = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0
-      setProgress({ progress: progressPercent, scrollPosition: scrollTop })
+      setProgress({ progress: progressPercent, page: progressPercent, scrollPosition: scrollTop })
       if (saveTimer) clearTimeout(saveTimer)
       saveTimer = setTimeout(() => saveProgress(), 500)
     }
-
     container.addEventListener('scroll', handleScroll)
-
     if (progress.scrollPosition) {
       container.scrollTop = progress.scrollPosition
     }
-
     return () => {
       container.removeEventListener('scroll', handleScroll)
       if (saveTimer) clearTimeout(saveTimer)
@@ -87,22 +322,51 @@ export function TextRenderer({ book, content, bookId }: TextRendererProps) {
   }, [text])
 
   return (
-    <div
-      ref={containerRef}
-      className="h-full overflow-auto bg-[var(--reader-bg)] text-[var(--reader-text)]"
-    >
-      <pre
-        className="reader-content max-w-3xl mx-auto whitespace-pre-wrap break-words"
-        style={{
-          fontSize: `${fontSize}px`,
-          fontFamily: fontFamily.replace('Georgia', 'JetBrains Mono').replace('serif', 'monospace'),
-          lineHeight,
-          padding: `${margin}px`,
-          textAlign,
-        }}
+    <>
+      <div
+        ref={containerRef}
+        className="h-full overflow-auto bg-[var(--reader-bg)] text-[var(--reader-text)]"
+        style={{ padding: `0 ${margin}px` }}
       >
-        {text}
-      </pre>
-    </div>
+        <div
+          className="reader-content select-text"
+          style={{
+            width: '100%',
+            whiteSpace: 'pre-line',
+            overflowWrap: 'break-word',
+            fontSize: `${fontSize}px`,
+            fontFamily: fontFamily.replace('Georgia', 'JetBrains Mono').replace('serif', 'monospace'),
+            lineHeight,
+            textAlign,
+          }}
+        >
+          {highlightedContent}
+        </div>
+      </div>
+
+      {highlightPopup && createPortal(
+        <div
+          className="fixed z-50 flex gap-2 bg-gray-900 border border-gray-700 rounded-lg shadow-xl p-2"
+          style={{ left: highlightPopup.x, top: highlightPopup.y - 44 }}
+        >
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c.value}
+              onMouseDown={(e) => { e.preventDefault(); handleAddHighlight(c.value) }}
+              className="w-6 h-6 rounded-full border border-gray-600 hover:scale-110 transition-transform"
+              style={{ backgroundColor: c.value }}
+              title={c.label}
+            />
+          ))}
+          <button
+            onMouseDown={(e) => { e.preventDefault(); setHighlightPopup(null) }}
+            className="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 hover:text-white text-sm"
+          >
+            ×
+          </button>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

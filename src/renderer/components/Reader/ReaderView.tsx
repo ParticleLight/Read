@@ -78,6 +78,9 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   const startReadingSession = useReaderStore((s) => s.startReadingSession)
   const endReadingSession = useReaderStore((s) => s.endReadingSession)
   const updateReadingTime = useReaderStore((s) => s.updateReadingTime)
+  const showSearch = useReaderStore((s) => s.showSearch)
+  const setShowSearch = useReaderStore((s) => s.setShowSearch)
+  const clearSearch = useReaderStore((s) => s.clearSearch)
 
   const { loadBookSettings, clearBookSettings } = useSettingsStore()
   const { shouldRender: renderSidebar, isClosing: sidebarClosing } = useAnimatedMount(showSidebar, 200)
@@ -158,10 +161,16 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
   useEffect(() => {
     const handleKeyDown = async (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        const { showSearch: srch, clearSearch: cls } = useReaderStore.getState()
+        if (srch) { cls(); return }
         await endReadingSession()
         await flushProgress()
         clearBookSettings()
         onClose()
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault()
+        setShowSearch(true)
       }
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -308,13 +317,13 @@ export function ReaderView({ bookId, onClose }: ReaderViewProps) {
         </button>
 
         {/* Controls */}
-        <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-          <ReaderControls bookId={bookId} onOpenSettings={() => setShowSettings(true)} />
+        <div className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 ${(showControls || showSearch) ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+          <ReaderControls bookId={bookId} format={book?.format || ''} onOpenSettings={() => setShowSettings(true)} />
         </div>
 
         {/* Page indicator */}
         <div className="absolute bottom-3 right-3 z-10 bg-black/40 backdrop-blur-sm text-white/70 text-xs px-3 py-1.5 rounded-full flex items-center gap-3">
-          <span>{progress.page != null ? `第 ${progress.page} 页` : `${Math.round(progress.progress || 0)}%`}</span>
+          <span>{['txt','mobi','fb2','html','markdown'].includes(book.format) ? `${(progress.progress || 0).toFixed(2)}%` : progress.page != null ? `第 ${progress.page} 页` : `${Math.round(progress.progress || 0)}%`}</span>
           <span className="opacity-70">|</span>
           <ReadingTimeDisplay />
         </div>

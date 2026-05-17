@@ -189,7 +189,7 @@ std::string BridgeServer::GenerateBridgeScript()
   window.electronAPI = {
     openFile: function()           { return invoke('dialog:openFile'); },
     openDirectory: function()      { return invoke('dialog:openDirectory'); },
-    readFile: function(path)       { return invoke('file:read', {path:path}); },
+    readFile: async function(path) { var r = await invoke('file:read', {path:path}); if (r && r._pb_url) { var resp = await fetch(r._pb_url); var buf = await resp.arrayBuffer(); return new Uint8Array(buf); } return r; },
     getBookMetadata: function(p)   { return invoke('book:metadata', {path:p}); },
     importBooks: function(p)       { return invoke('book:import', {paths:p}); },
     getCoverImage: function(id)    { return invoke('book:cover', {id:id}); },
@@ -260,6 +260,9 @@ std::string BridgeServer::GenerateBridgeScript()
     zlibSwitchMirror: function(i){ return invoke('zlib:switchMirror', {index:i}); },
     zlibGetMirrorInfo: function(){ return invoke('zlib:getMirrorInfo'); },
     zlibShowMirrorMenu: function(){ return invoke('zlib:showMirrorMenu'); },
+    zlibSetDownloadPath: function(p) { return invoke('zlib:setDownloadPath', {path:p}); },
+    zlibGetDownloadPath: function()  { return invoke('zlib:getDownloadPath'); },
+    zlibPickDownloadFolder: function() { return invoke('zlib:pickDownloadFolder'); },
     onZlibDownloadProgress: function(cb) { return onEvent('zlib:downloadProgress', cb); },
     onZlibDownloadComplete: function(cb) { return onEvent('zlib:downloadComplete', cb); },
     onZlibImportComplete: function(cb)   { return onEvent('zlib:importComplete', cb); },
@@ -283,6 +286,8 @@ std::string BridgeServer::GenerateBridgeScript()
 
     pdfOpen: function(path)    { return invoke('pdf:open', {filePath:path}); },
     pdfRenderPage: function(id,p,w,h) { return invoke('pdf:renderPage', {id:id, pageNum:p, width:w, height:h}); },
+    pdfGetFileUrl: function(path) { return invoke('pdf:getFileUrl', {filePath:path}); },
+    pdfExtractText: function(id) { return invoke('pdf:extractText', {id:id}); },
     pdfClose: function(id)    { return invoke('pdf:close', {id:id}); },
 
     getFilePath: function(file) {

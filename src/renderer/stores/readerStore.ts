@@ -96,6 +96,18 @@ export interface ReaderState {
   seekTo: (percent: number) => void
   clearSeekTarget: () => void
 
+  // Full-text search
+  showSearch: boolean
+  searchQuery: string
+  searchMatches: number[]
+  currentSearchIndex: number
+  setShowSearch: (show: boolean) => void
+  setSearchQuery: (query: string) => void
+  setSearchMatches: (matches: number[]) => void
+  nextSearchMatch: () => void
+  prevSearchMatch: () => void
+  clearSearch: () => void
+
   setSidebarTab: (tab: 'toc' | 'bookmarks' | 'highlights' | 'notes') => void
   toggleSidebar: () => void
   setShowSidebar: (show: boolean) => void
@@ -116,6 +128,10 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   navigateTarget: null,
   turnPageDelta: null,
   seekTarget: null,
+  showSearch: false,
+  searchQuery: '',
+  searchMatches: [],
+  currentSearchIndex: -1,
   tableOfContents: [],
 
   // Reading time tracking
@@ -329,6 +345,21 @@ export const useReaderStore = create<ReaderState>((set, get) => ({
   clearTurnPage: () => set({ turnPageDelta: null }),
   seekTo: (percent) => set({ seekTarget: percent }),
   clearSeekTarget: () => set({ seekTarget: null }),
+
+  setShowSearch: (show) => set({ showSearch: show }),
+  setSearchQuery: (query) => set({ searchQuery: query, currentSearchIndex: -1, searchMatches: [] }),
+  setSearchMatches: (matches) => set({ searchMatches: matches, currentSearchIndex: matches.length > 0 ? 0 : -1 }),
+  nextSearchMatch: () => {
+    const { currentSearchIndex, searchMatches } = get()
+    if (searchMatches.length === 0) return
+    set({ currentSearchIndex: (currentSearchIndex + 1) % searchMatches.length })
+  },
+  prevSearchMatch: () => {
+    const { currentSearchIndex, searchMatches } = get()
+    if (searchMatches.length === 0) return
+    set({ currentSearchIndex: currentSearchIndex <= 0 ? searchMatches.length - 1 : currentSearchIndex - 1 })
+  },
+  clearSearch: () => set({ showSearch: false, searchQuery: '', searchMatches: [], currentSearchIndex: -1 }),
   setSidebarTab: (sidebarTab) => set({ sidebarTab, showSidebar: true }),
   toggleSidebar: () => set({ showSidebar: !get().showSidebar }),
   setShowSidebar: (show) => set({ showSidebar: show }),

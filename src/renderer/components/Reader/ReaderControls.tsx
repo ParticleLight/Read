@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 interface ReaderControlsProps {
   bookId: number
+  format: string
   onOpenSettings: () => void
 }
 
-export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) {
+export function ReaderControls({ bookId, format, onOpenSettings }: ReaderControlsProps) {
   const progress = useReaderStore((s) => s.progress)
   const bookmarks = useReaderStore((s) => s.bookmarks)
   const addBookmark = useReaderStore((s) => s.addBookmark)
@@ -16,6 +17,17 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
   const setSidebarTab = useReaderStore((s) => s.setSidebarTab)
   const setControlsLocked = useReaderStore((s) => s.setControlsLocked)
   const seekTo = useReaderStore((s) => s.seekTo)
+
+  const showSearch = useReaderStore((s) => s.showSearch)
+  const setShowSearch = useReaderStore((s) => s.setShowSearch)
+  const searchQuery = useReaderStore((s) => s.searchQuery)
+  const searchMatches = useReaderStore((s) => s.searchMatches)
+  const currentSearchIndex = useReaderStore((s) => s.currentSearchIndex)
+  const setSearchQuery = useReaderStore((s) => s.setSearchQuery)
+  const nextSearchMatch = useReaderStore((s) => s.nextSearchMatch)
+  const prevSearchMatch = useReaderStore((s) => s.prevSearchMatch)
+  const clearSearch = useReaderStore((s) => s.clearSearch)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   const theme = useSettingsStore((s) => s.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
@@ -31,6 +43,23 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
   }
 
   const themes = ['light', 'dark', 'sepia'] as const
+
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => searchInputRef.current?.focus(), 100)
+    }
+  }, [showSearch])
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      if (e.shiftKey) prevSearchMatch()
+      else nextSearchMatch()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      clearSearch()
+    }
+  }
 
   const currentPage = progress.page || 0
   const isBookmarked = bookmarks.some((bm) => {
@@ -99,6 +128,38 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
         </div>
       )}
 
+      {showSearch && (
+        <div className="max-w-2xl mx-auto mb-3">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 shrink-0" style={{ color: 'var(--reader-text)', opacity: 0.5 }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="搜索全书... (Enter/Shift+Enter)"
+              className={`flex-1 ${ctrlClasses.input} ${ctrlClasses.inputBg} placeholder:opacity-40`}
+            />
+            <span className={`text-xs shrink-0 min-w-[2.5rem] text-center ${searchMatches.length === 0 && searchQuery ? 'text-red-400' : ''}`}
+              style={{ color: searchMatches.length === 0 && searchQuery ? undefined : 'var(--reader-text)', opacity: searchMatches.length === 0 && searchQuery ? 1 : 0.5 }}>
+              {searchMatches.length > 0 ? `${currentSearchIndex + 1}/${searchMatches.length}` : searchQuery ? '0/0' : ''}
+            </span>
+            <button onClick={prevSearchMatch} className={`${ctrlClasses.btn} ${ctrlClasses.btnDefault}`} title="上一个 (Shift+Enter)">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" /></svg>
+            </button>
+            <button onClick={nextSearchMatch} className={`${ctrlClasses.btn} ${ctrlClasses.btnDefault}`} title="下一个 (Enter)">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            <button onClick={clearSearch} className={`${ctrlClasses.btn} ${ctrlClasses.btnDefault}`} title="关闭搜索 (Esc)">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-2xl mx-auto mb-3">
         <input
           type="range"
@@ -110,8 +171,8 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
           style={{ background: 'var(--reader-border)', accentColor: 'var(--reader-accent)' }}
         />
         <div className="flex justify-between text-xs mt-1" style={{ color: 'var(--reader-text)', opacity: 0.4 }}>
-          <span>{Math.round(progress.progress || 0)}%</span>
-          <span>{progress.page ? `第 ${progress.page} 页` : ''}</span>
+          <span>{(progress.progress || 0).toFixed(2)}%</span>
+          <span>{['txt','mobi','fb2','html','markdown'].includes(format) ? '' : progress.page != null ? `第 ${progress.page} 页` : ''}</span>
         </div>
       </div>
 
@@ -147,6 +208,17 @@ export function ReaderControls({ bookId, onOpenSettings }: ReaderControlsProps) 
         >
           <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+        </button>
+
+        <button
+          onClick={() => setShowSearch(!showSearch)}
+          className={`${ctrlClasses.btn} ${showSearch ? 'text-[var(--reader-accent)] bg-[var(--color-indigo-bg)]' : ctrlClasses.btnDefault}`}
+          title="搜索 (Ctrl+F)"
+          aria-label="搜索"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </button>
 

@@ -3,6 +3,7 @@ import MarkdownIt from 'markdown-it'
 import { XMLParser } from 'fast-xml-parser'
 import { useReaderStore } from '../../stores/readerStore'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { highlightTextInDOM } from '../../utils/domSearch'
 import type { Book } from '../../stores/libraryStore'
 
 interface HtmlRendererProps {
@@ -16,6 +17,8 @@ const md = new MarkdownIt({ html: false, linkify: true, typographer: true })
 export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
   const [htmlContent, setHtmlContent] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const searchMarksRef = useRef<HTMLElement[]>([])
 
   const progress = useReaderStore((s) => s.progress)
   const setProgress = useReaderStore((s) => s.setProgress)
@@ -27,6 +30,10 @@ export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
   const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
   const seekTarget = useReaderStore((s) => s.seekTarget)
   const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
+  const searchQuery = useReaderStore((s) => s.searchQuery)
+  const searchMatches = useReaderStore((s) => s.searchMatches)
+  const currentSearchIndex = useReaderStore((s) => s.currentSearchIndex)
+  const setSearchMatches = useReaderStore((s) => s.setSearchMatches)
 
   const fontSize = useSettingsStore((s) => s.fontSize)
   const fontFamily = useSettingsStore((s) => s.fontFamily)
@@ -54,7 +61,6 @@ export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
     clearTurnPage()
   }, [turnPageDelta])
 
-  // Handle seek from progress bar
   useEffect(() => {
     if (seekTarget === null || !containerRef.current) return
     const container = containerRef.current
@@ -118,18 +124,69 @@ export function HtmlRenderer({ book, content, bookId }: HtmlRendererProps) {
     })
   }, [htmlContent])
 
+  // Search highlighting — apply after DOM is rendered
+  useEffect(() => {
+    const contentDiv = contentRef.current
+    if (!contentDiv) return
+
+    // Remove old marks
+    for (const m of searchMarksRef.current) {
+      const parent = m.parentNode
+      if (parent) {
+        parent.replaceChild(document.createTextNode(m.textContent || ''), m)
+        parent.normalize()
+      }
+    }
+    searchMarksRef.current = []
+
+    if (!searchQuery || !searchQuery.trim()) {
+      if (searchMatches.length > 0) setSearchMatches([])
+      return
+    }
+
+    // Wait for React to finish rendering
+    requestAnimationFrame(() => {
+      const marks = highlightTextInDOM(contentDiv, searchQuery.trim())
+      searchMarksRef.current = marks
+      if (marks.length > 0) {
+        setSearchMatches(Array.from({ length: marks.length }, (_, i) => i))
+      } else {
+        setSearchMatches([])
+      }
+    })
+  }, [htmlContent, searchQuery])
+
+  // Scroll to current search match
+  useEffect(() => {
+    const marks = searchMarksRef.current
+    if (marks.length === 0 || currentSearchIndex < 0 || currentSearchIndex >= marks.length) return
+    const mark = marks[currentSearchIndex]
+    // Reset all marks to default style
+    for (const m of marks) {
+      m.style.backgroundColor = 'rgba(251,191,36,0.3)'
+      m.style.outline = ''
+    }
+    // Highlight active
+    mark.style.backgroundColor = 'rgba(251,191,36,0.55)'
+    mark.style.outline = '2px solid rgba(251,191,36,0.8)'
+    mark.style.outlineOffset = '1px'
+    mark.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [currentSearchIndex])
+
   return (
     <div
       ref={containerRef}
       className="h-full overflow-auto bg-[var(--reader-bg)] text-[var(--reader-text)]"
+      style={{ padding: `0 ${margin}px` }}
     >
       <div
-        className="reader-content max-w-3xl mx-auto"
+        ref={contentRef}
+        className="reader-content"
         style={{
+          width: '100%',
           fontSize: `${fontSize}px`,
           fontFamily,
           lineHeight,
-          padding: `${margin}px`,
           textAlign,
         }}
         dangerouslySetInnerHTML={{ __html: htmlContent }}

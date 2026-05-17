@@ -77,9 +77,11 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                   key={i}
                   onClick={() => {
                     if (item.href) {
-                      navigateTo({ cfi: item.href })
+                      navigateTo({ cfi: item.href, page: item.page })
                     } else if (item.id) {
-                      navigateTo({ cfi: item.id })
+                      navigateTo({ cfi: item.id, page: item.page })
+                    } else if (item.page !== undefined) {
+                      navigateTo({ page: item.page })
                     }
                   }}
                   className="w-full text-left px-3 py-2 text-sm rounded-lg hover:bg-[var(--reader-border)] text-[var(--reader-text)] opacity-80 hover:opacity-100 transition-colors"
@@ -184,7 +186,7 @@ export function Sidebar({ bookId, onClose }: SidebarProps) {
                       {hl.note && <p className="text-xs text-[var(--reader-text)] opacity-40 mt-1">{hl.note}</p>}
                     </div>
                     <button
-                      onClick={() => removeHighlight(hl.id)}
+                      onClick={(e) => { e.stopPropagation(); removeHighlight(hl.id) }}
                       className="opacity-0 group-hover:opacity-100 p-1 text-[var(--reader-text)] opacity-40 hover:opacity-80"
                     >
                       <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">

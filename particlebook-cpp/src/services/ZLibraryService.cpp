@@ -8,6 +8,7 @@
 #include <shellapi.h>
 #include <winhttp.h>
 #include <shlobj.h>
+#include <shobjidl.h>
 #include <regex>
 #include <algorithm>
 #include <filesystem>
@@ -138,6 +139,14 @@ json ZLibraryService::Show() {
     m_zlibActive = true;
     SetupDownloadHandler();
 
+    // Load saved download path from database settings
+    if (m_db && m_downloadPath.empty()) {
+        json settings = m_db->GetSettings();
+        if (!settings.is_null() && settings.contains("zlibDownloadPath")) {
+            m_downloadPath = settings["zlibDownloadPath"].get<std::string>();
+        }
+    }
+
     auto* wv = m_host ? m_host->GetWebView() : nullptr;
     if (!wv) {
         ShellExecuteW(nullptr, L"open", ToWide(m_mirrors[m_currentMirror]).c_str(),
@@ -183,16 +192,90 @@ json ZLibraryService::Logout() {
 
 std::string ZLibraryService::GetDownloadPath() const
 {
+    if (!m_downloadPath.empty()) {
+        std::string path = m_downloadPath;
+        for (auto& c : path) if (c == '/') c = '\\';
+        std::error_code ec;
+        std::filesystem::create_directories(path, ec);
+        return path;
+    }
     wchar_t profile[MAX_PATH];
     if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_PROFILE, nullptr, 0, profile))) {
         char buf[MAX_PATH * 3];
         WideCharToMultiByte(CP_UTF8, 0, profile, -1, buf, sizeof(buf), nullptr, nullptr);
-        std::string path = std::string(buf) + "/Downloads/ParticleBook";
+        std::string path = std::string(buf) + "\\Downloads\\ParticleBook";
+        for (auto& c : path) if (c == '/') c = '\\';
         std::error_code ec;
         std::filesystem::create_directories(path, ec);
         return path;
     }
     return App::Instance().UserDataPath() + "/downloads";
+}
+
+json ZLibraryService::SetDownloadPath(const std::string& path)
+{
+    m_downloadPath = path;
+    for (auto& c : m_downloadPath) if (c == '/') c = '\\';
+    // Persist to database settings
+    if (m_db) {
+        json settings = m_db->GetSettings();
+        if (settings.is_null()) settings = json::object();
+        settings["zlibDownloadPath"] = m_downloadPath;
+        m_db->UpdateSettings(settings);
+    }
+    return json({{"path", m_downloadPath}});
+}
+
+json ZLibraryService::GetDownloadPathStr() const
+{
+    std::string path = m_downloadPath;
+    // If no custom path set, return default
+    if (path.empty()) {
+        wchar_t profile[MAX_PATH];
+        if (SUCCEEDED(SHGetFolderPathW(nullptr, CSIDL_PROFILE, nullptr, 0, profile))) {
+            char buf[MAX_PATH * 3];
+            WideCharToMultiByte(CP_UTF8, 0, profile, -1, buf, sizeof(buf), nullptr, nullptr);
+            path = std::string(buf) + "\\Downloads\\ParticleBook";
+        }
+    }
+    for (auto& c : path) if (c == '\\') c = '/';
+    return json({{"path", path}});
+}
+
+json ZLibraryService::PickDownloadFolder()
+{
+    std::string result;
+
+    IFileOpenDialog* pDialog = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL,
+                                  IID_PPV_ARGS(&pDialog));
+    if (SUCCEEDED(hr) && pDialog) {
+        DWORD flags;
+        pDialog->GetOptions(&flags);
+        pDialog->SetOptions(flags | FOS_PICKFOLDERS | FOS_PATHMUSTEXIST);
+
+        hr = pDialog->Show(nullptr);
+        if (SUCCEEDED(hr)) {
+            IShellItem* pItem = nullptr;
+            hr = pDialog->GetResult(&pItem);
+            if (SUCCEEDED(hr) && pItem) {
+                LPWSTR pwPath = nullptr;
+                hr = pItem->GetDisplayName(SIGDN_FILESYSPATH, &pwPath);
+                if (SUCCEEDED(hr) && pwPath) {
+                    result = ToNarrow(pwPath);
+                    CoTaskMemFree(pwPath);
+                }
+                pItem->Release();
+            }
+        }
+        pDialog->Release();
+    }
+
+    if (!result.empty()) {
+        SetDownloadPath(result);
+        return json({{"path", result}});
+    }
+    return json({{"path", m_downloadPath}});
 }
 
 void ZLibraryService::SetupDownloadHandler()
@@ -217,13 +300,34 @@ void ZLibraryService::SetupDownloadHandler()
 
     auto* wv = m_host->GetWebView();
 
+    // ── NewWindowRequested — redirect popup to main window for DownloadStarting interception ──
+    ComPtr<ICoreWebView2_2> wv2nw;
+    if (SUCCEEDED(wv->QueryInterface(IID_PPV_ARGS(&wv2nw)))) {
+        wv2nw->add_NewWindowRequested(
+            Callback<ICoreWebView2NewWindowRequestedEventHandler>(
+                [this](ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs* args) -> HRESULT {
+                    if (!m_zlibActive) return S_OK;
+                    if (m_zlibDlInProgress) { args->put_Handled(TRUE); return S_OK; }
+                    LPWSTR uriRaw = nullptr;
+                    if (FAILED(args->get_Uri(&uriRaw)) || !uriRaw) return S_OK;
+                    args->put_Handled(TRUE); // cancel popup
+                    // Allow the download URL past NavigationStarting
+                    m_zlibDlNavigating = true;
+                    // Navigate main window — DownloadStarting will intercept
+                    if (m_host && m_host->GetWebView())
+                        m_host->GetWebView()->Navigate(uriRaw);
+                    CoTaskMemFree(uriRaw);
+                    return S_OK;
+                }).Get(), nullptr);
+    }
+
     // ── NavigationStarting — prevent leaving Z-Library domains ──
     ComPtr<ICoreWebView2_2> wv2nav;
     if (SUCCEEDED(wv->QueryInterface(IID_PPV_ARGS(&wv2nav)))) {
         wv2nav->add_NavigationStarting(
             Callback<ICoreWebView2NavigationStartingEventHandler>(
                 [this](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
-                    if (!m_zlibActive) return S_OK;
+                    if (!m_zlibActive || m_zlibDlNavigating) return S_OK;
                     LPWSTR uriRaw = nullptr;
                     if (FAILED(args->get_Uri(&uriRaw)) || !uriRaw) return S_OK;
                     std::string uri = ToNarrow(uriRaw);
@@ -253,6 +357,7 @@ void ZLibraryService::SetupDownloadHandler()
                     if (!m_zlibActive) return S_OK;
                     if (m_zlibDlInProgress) { args->put_Handled(TRUE); return S_OK; }
                     m_zlibDlInProgress = true;
+                    m_zlibDlNavigating = false;
 
                     ComPtr<ICoreWebView2DownloadOperation> op;
                     if (FAILED(args->get_DownloadOperation(&op))) { m_zlibDlInProgress = false; return S_OK; }
@@ -330,7 +435,7 @@ void ZLibraryService::SetupDownloadHandler()
 void ZLibraryService::StartDownloadThread(const std::string& startUrl, const std::string& fileName, const std::string& cookies)
 {
     std::string fn = fileName.empty() ? "download" : fileName;
-    std::string downloadPath = GetDownloadPath() + "/" + fn;
+    std::string downloadPath = GetDownloadPath() + "\\" + fn;
     std::filesystem::create_directories(GetDownloadPath(), std::error_code{});
 
     m_bridge->EmitEvent("zlib:downloadStart", {{"fileName", fn}});
@@ -367,7 +472,13 @@ void ZLibraryService::StartDownloadThread(const std::string& startUrl, const std
                 std::wstring ch = L"Cookie: " + ToWide(cookies);
                 WinHttpAddRequestHeaders(hR, ch.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
             }
-            WinHttpAddRequestHeaders(hR, L"User-Agent: Mozilla/5.0", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            WinHttpAddRequestHeaders(hR, L"User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            WinHttpAddRequestHeaders(hR, L"Accept: */*", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            WinHttpAddRequestHeaders(hR, L"Accept-Language: zh-CN,zh;q=0.9,en;q=0.8", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            {
+                std::string referer = url.substr(0, url.find('/', url.find("://") + 3));
+                WinHttpAddRequestHeaders(hR, (L"Referer: " + ToWide(referer)).c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            }
 
             if (!WinHttpSendRequest(hR, nullptr, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hR, nullptr)) {
                 WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
@@ -464,7 +575,6 @@ void ZLibraryService::DoImport(const std::string& downloadPath, const std::strin
     if (success) {
         m_bridge->EmitEvent("zlib:importComplete", {{"fileName", fileName}});
         m_bridge->EmitEvent("menu:importBooks", json::object());
-        if (m_hwnd) PostMessage(m_hwnd, WM_ZLIB_REFRESH_LIBRARY, 1, 0);
     } else {
         m_bridge->EmitEvent("zlib:importError", {{"fileName", fileName}, {"error", errMsg}});
     }
@@ -485,5 +595,14 @@ void RegisterZlibHandlers(BridgeServer* bridge, ZLibraryService* zlib) {
     bridge->RegisterMethod("zlib:showMirrorMenu", [zlib](const json&) -> json {
         auto info = zlib->GetMirrorInfo(); int t = (int)info["mirrors"].size();
         return zlib->SwitchMirror((info["index"].get<int>()+1)%(t>0?t:1));
+    });
+    bridge->RegisterMethod("zlib:setDownloadPath", [zlib](const json& p) {
+        return zlib->SetDownloadPath(p.value("path", ""));
+    });
+    bridge->RegisterMethod("zlib:getDownloadPath", [zlib](const json&) {
+        return zlib->GetDownloadPathStr();
+    });
+    bridge->RegisterMethod("zlib:pickDownloadFolder", [zlib](const json&) {
+        return zlib->PickDownloadFolder();
     });
 }

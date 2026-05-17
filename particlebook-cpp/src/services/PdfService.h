@@ -21,6 +21,8 @@ public:
 
     PdfOpenResult Open(const std::string& filePath);
     std::string RenderPage(int id, uint32_t pageIndex, int pixelWidth, int pixelHeight);
+    std::string GetFileUrl(const std::string& filePath);
+    std::string ExtractText(int id);
     void Close(int id);
 
 private:
@@ -29,6 +31,7 @@ private:
         std::string filePath;
         uint32_t pageCount;
         std::vector<PdfPageBounds> pageBounds;
+        std::vector<std::string> tempFiles;
     };
     std::vector<DocEntry> m_docs;
     std::vector<std::string> m_tempFiles;

@@ -314,20 +314,25 @@ std::string PdfService::RenderPage(int id, uint32_t pageIndex, int pixelWidth, i
     }
     if (!entry || pageIndex >= entry->pageCount) return "";
 
-    // Create temp directory
-    std::string tmpDir = entry->filePath + ".mutool_tmp";
-    std::filesystem::create_directories(Utf8ToWide(tmpDir));
+    // Get renderer directory (mapped to particlebook.app virtual host)
+    wchar_t exePathBuf[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePathBuf, MAX_PATH);
+    auto rendererDir = (std::filesystem::path(exePathBuf).parent_path() / "renderer" / "_pb_pdf").string();
+    std::filesystem::create_directories(Utf8ToWide(rendererDir));
 
-    // Generate unique filename
-    std::string outFile = tmpDir + "\\page_" + std::to_string(pageIndex) + ".png";
+    std::string fileName = "doc_" + std::to_string(id) + "_page_" + std::to_string(pageIndex) + ".png";
+    std::string outFile = rendererDir + "\\" + fileName;
+    std::string url = "http://particlebook.app/_pb_pdf/" + fileName;
 
-    // Build mutool draw command
-    // Use DPI-based scaling to get proper resolution
+    // Skip if already rendered
+    if (GetFileAttributesW(Utf8ToWide(outFile).c_str()) != INVALID_FILE_ATTRIBUTES) {
+        return url;
+    }
+
     double pageW = entry->pageBounds[pageIndex].width;
     double pageH = entry->pageBounds[pageIndex].height;
 
-    // Calculate resolution to match requested pixel dimensions
-    int dpi = 150; // default reasonable DPI
+    int dpi = 150;
     if (pixelWidth > 0 && pageW > 0) {
         dpi = static_cast<int>((pixelWidth / pageW) * 72.0);
     }
@@ -341,27 +346,95 @@ std::string PdfService::RenderPage(int id, uint32_t pageIndex, int pixelWidth, i
     std::string output;
     RunMutool(args, output);
 
-    // Read the rendered PNG file
-    HANDLE hFile = CreateFileW(Utf8ToWide(outFile).c_str(), GENERIC_READ, FILE_SHARE_READ,
-                               nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (hFile == INVALID_HANDLE_VALUE) return "";
+    // Verify file was created
+    if (GetFileAttributesW(Utf8ToWide(outFile).c_str()) == INVALID_FILE_ATTRIBUTES) {
+        return "";
+    }
 
-    LARGE_INTEGER liSize;
-    GetFileSizeEx(hFile, &liSize);
-    size_t size = static_cast<size_t>(liSize.QuadPart);
-    if (size == 0 || size > 50 * 1024 * 1024) { CloseHandle(hFile); return ""; }
+    // Track for cleanup
+    entry->tempFiles.push_back(outFile);
 
-    std::vector<uint8_t> data(size);
-    DWORD bytesRead = 0;
-    ReadFile(hFile, data.data(), static_cast<DWORD>(size), &bytesRead, nullptr);
-    CloseHandle(hFile);
+    return url;
+}
 
-    // Clean up temp file
-    DeleteFileW(Utf8ToWide(outFile).c_str());
+// ── Get File URL for native PDF viewer ─────────────────────────────────
 
-    if (bytesRead == 0) return "";
+std::string PdfService::GetFileUrl(const std::string& filePath)
+{
+    wchar_t exePathBuf[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePathBuf, MAX_PATH);
+    auto booksDir = (std::filesystem::path(exePathBuf).parent_path() / "renderer" / "_pb_books").wstring();
+    std::filesystem::create_directories(booksDir);
 
-    return "data:image/png;base64," + Base64Encode(data.data(), bytesRead);
+    auto srcPath = Utf8ToWide(filePath);
+    auto fileName = std::filesystem::path(srcPath).filename().wstring();
+
+    // Use fixed name based on file path hash to avoid collisions
+    std::hash<std::string> hasher;
+    size_t hash = hasher(filePath);
+    std::wstring linkName = L"book_" + std::to_wstring(hash) + L"_" + fileName;
+    auto linkPath = booksDir + L"\\" + linkName;
+
+    // Copy file if doesn't exist
+    if (GetFileAttributesW(linkPath.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        // Clean up old links with same hash but different filename
+        std::wstring oldPrefix = L"book_" + std::to_wstring(hash) + L"_";
+        for (auto& entry : std::filesystem::directory_iterator(booksDir)) {
+            auto name = entry.path().filename().wstring();
+            if (name.find(oldPrefix) == 0 && name != linkName) {
+                DeleteFileW(entry.path().c_str());
+            }
+        }
+        CopyFileW(srcPath.c_str(), linkPath.c_str(), FALSE);
+    }
+
+    return "http://particlebook.app/_pb_books/" + WideToUtf8(linkName.c_str());
+}
+
+// ── Extract Text ──────────────────────────────────────────────────────
+
+std::string PdfService::ExtractText(int id)
+{
+    DocEntry* entry = nullptr;
+    for (auto& e : m_docs) {
+        if (e.id == id) { entry = &e; break; }
+    }
+    if (!entry) return "";
+
+    std::string output;
+    // Use draw -F text which outputs plain text with form-feed page breaks
+    std::string args = "draw -F text -o - \"" + entry->filePath + "\"";
+    if (!RunMutool(args, output, 60000)) return "";
+
+    // Split by form feed to get text per page
+    json result;
+    result["pages"] = json::array();
+
+    size_t start = 0;
+    int pageNum = 0;
+    while (start < output.size()) {
+        size_t end = output.find('\f', start);
+        std::string pageText;
+        if (end == std::string::npos) {
+            pageText = output.substr(start);
+        } else {
+            pageText = output.substr(start, end - start);
+        }
+
+        // Clean up text: remove excessive whitespace but preserve structure
+        if (!pageText.empty()) {
+            json page;
+            page["pageNum"] = pageNum;
+            page["text"] = pageText;
+            result["pages"].push_back(page);
+        }
+        pageNum++;
+
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+
+    return result.dump();
 }
 
 // ── Close PDF ────────────────────────────────────────────────────────
@@ -370,6 +443,11 @@ void PdfService::Close(int id)
 {
     for (auto it = m_docs.begin(); it != m_docs.end(); ++it) {
         if (it->id == id) {
+            // Clean up temp PNG files
+            for (auto& f : it->tempFiles) {
+                DeleteFileW(Utf8ToWide(f).c_str());
+            }
+            // Clean up legacy mutool_tmp dir
             std::error_code ec;
             std::string tmpDir = it->filePath + ".mutool_tmp";
             std::filesystem::remove_all(Utf8ToWide(tmpDir), ec);
@@ -400,6 +478,13 @@ void RegisterPdfHandlers(BridgeServer* bridge, PdfService* pdf)
         return j;
     });
 
+    bridge->RegisterMethod("pdf:getFileUrl", [pdf](const json& p) -> json {
+        std::string filePath = p["filePath"].get<std::string>();
+        std::string url = pdf->GetFileUrl(filePath);
+        if (url.empty()) return json(nullptr);
+        return json(url);
+    });
+
     bridge->RegisterMethod("pdf:renderPage", [pdf](const json& p) -> json {
         int id = p["id"].get<int>();
         uint32_t pageNum = p["pageNum"].get<uint32_t>();
@@ -408,6 +493,12 @@ void RegisterPdfHandlers(BridgeServer* bridge, PdfService* pdf)
         std::string dataUrl = pdf->RenderPage(id, pageNum, w, h);
         if (dataUrl.empty()) return json(nullptr);
         return json(dataUrl);
+    });
+
+    bridge->RegisterMethod("pdf:extractText", [pdf](const json& p) -> json {
+        std::string textJson = pdf->ExtractText(p["id"].get<int>());
+        if (textJson.empty()) return json(nullptr);
+        return json::parse(textJson);
     });
 
     bridge->RegisterMethod("pdf:close", [pdf](const json& p) -> json {

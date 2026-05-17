@@ -40,6 +40,11 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
   const clearTurnPage = useReaderStore((s) => s.clearTurnPage)
   const seekTarget = useReaderStore((s) => s.seekTarget)
   const clearSeekTarget = useReaderStore((s) => s.clearSeekTarget)
+  const searchQuery = useReaderStore((s) => s.searchQuery)
+  const currentSearchIndex = useReaderStore((s) => s.currentSearchIndex)
+  const setSearchMatches = useReaderStore((s) => s.setSearchMatches)
+  const searchRangesRef = useRef<{ href: string; occurrenceIndex: number }[]>([])
+  const searchHrefMapRef = useRef<Map<string, { text: string; matchCount: number }>>(new Map())
 
   const fontSize = useSettingsStore((s) => s.fontSize)
   const fontFamily = useSettingsStore((s) => s.fontFamily)
@@ -107,6 +112,18 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       const spine = epubBook.spine
       spineLengthRef.current = spine.items ? spine.items.length : (spine.spineItems ? spine.spineItems.length : 0)
 
+      // Inject CSS Highlight API styles
+      const styleId = 'pb-search-styles'
+      if (!document.getElementById(styleId)) {
+        const style = document.createElement('style')
+        style.id = styleId
+        style.textContent = '::highlight(pb-search){background-color:rgba(251,191,36,0.3);color:inherit}::highlight(pb-search-active){background-color:rgba(251,191,36,0.55);outline:2px solid rgba(251,191,36,0.8);outline-offset:1px}'
+        document.head.appendChild(style)
+      }
+
+      // Pre-load full text for search
+      extractFullText()
+
       if (progress.cfi) {
         rendition.display(progress.cfi)
       } else {
@@ -141,6 +158,9 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       }
       setProgress({ progress: progressPercent, cfi })
       saveProgress()
+
+      // Re-apply CSS search highlights on current page after page turn
+      setTimeout(() => applySearchHighlights(), 200)
     })
 
     // Text selection for highlights
@@ -172,6 +192,14 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
       if (doc) {
         doc.body.style.userSelect = 'text'
         doc.body.style.webkitUserSelect = 'text'
+
+        // Inject CSS highlight styles into iframe
+        if (!doc.getElementById('pb-search-styles')) {
+          const st = doc.createElement('style')
+          st.id = 'pb-search-styles'
+          st.textContent = '::highlight(pb-search){background-color:rgba(251,191,36,0.3);color:inherit}::highlight(pb-search-active){background-color:rgba(251,191,36,0.55);outline:2px solid rgba(251,191,36,0.8);outline-offset:1px}'
+          doc.head?.appendChild(st)
+        }
 
         doc.addEventListener('mousemove', () => {
           window.dispatchEvent(new MouseEvent('mousemove'))
@@ -288,6 +316,167 @@ export function EpubRenderer({ book, content, bookId }: EpubRendererProps) {
         break
     }
   }, [theme])
+
+  // ── Full-book text extraction: count matches per section ──────────────
+  const extractFullText = useCallback(async () => {
+    const epubBook = bookRef.current
+    if (!epubBook) return
+    try {
+      const spine = epubBook.spine
+      const items = spine.items || (spine as any).spineItems || []
+      const map = new Map<string, { text: string; matchCount: number }>()
+      for (const item of items) {
+        const href = item.href
+        if (!href) continue
+        try {
+          const doc = await epubBook.load(href)
+          const text = (doc as any)?.body?.textContent || (doc as any)?.documentElement?.textContent || ''
+          map.set(href, { text, matchCount: 0 })
+        } catch {}
+      }
+      searchHrefMapRef.current = map
+    } catch {}
+  }, [])
+
+  // ── Apply CSS Highlight API to current iframe ────────────────────────
+  const applySearchHighlights = useCallback(() => {
+    const iframe = viewerRef.current?.querySelector('iframe') as HTMLIFrameElement | null
+    const doc = iframe?.contentDocument
+    const win = iframe?.contentWindow as any
+    if (!doc?.body || !win) return
+    // Clear existing highlights
+    try { win.CSS?.highlights?.delete('pb-search') } catch {}
+    try { win.CSS?.highlights?.delete('pb-search-active') } catch {}
+
+    const q = searchQuery?.trim()
+    if (!q) return
+
+    const ranges: Range[] = []
+    const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+    const lowerQ = q.toLowerCase()
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text
+      const text = node.textContent || ''
+      const lowerText = text.toLowerCase()
+      let idx = lowerText.indexOf(lowerQ)
+      while (idx !== -1) {
+        try {
+          const range = doc.createRange()
+          range.setStart(node, idx)
+          range.setEnd(node, idx + q.length)
+          ranges.push(range)
+        } catch {}
+        idx = lowerText.indexOf(lowerQ, idx + q.length)
+      }
+    }
+    if (ranges.length > 0) {
+      try {
+        const hl = new (win.Highlight)(...ranges)
+        win.CSS.highlights.set('pb-search', hl)
+      } catch {}
+    }
+  }, [searchQuery])
+
+  // ── Full-text search across all sections ──────────────────────────────
+  useEffect(() => {
+    const iframe = viewerRef.current?.querySelector('iframe') as HTMLIFrameElement | null
+    const doc = iframe?.contentDocument
+    const win = iframe?.contentWindow as any
+    try { win?.CSS?.highlights?.delete('pb-search') } catch {}
+    try { win?.CSS?.highlights?.delete('pb-search-active') } catch {}
+
+    if (!searchQuery || !searchQuery.trim() || !isReady) {
+      searchRangesRef.current = []
+      if (searchQuery !== '') setSearchMatches([])
+      return
+    }
+
+    const q = searchQuery.trim().toLowerCase()
+    const map = searchHrefMapRef.current
+    const results: { href: string; occurrenceIndex: number }[] = []
+
+    for (const [href, { text }] of map) {
+      let occIdx = 0
+      const lowerText = text.toLowerCase()
+      let idx = lowerText.indexOf(q)
+      while (idx !== -1) {
+        results.push({ href, occurrenceIndex: occIdx++ })
+        idx = lowerText.indexOf(q, idx + q.length)
+      }
+    }
+
+    searchRangesRef.current = results
+    setSearchMatches(Array.from({ length: results.length }, (_, i) => i))
+
+    setTimeout(() => applySearchHighlights(), 300)
+  }, [searchQuery, isReady])
+
+  // ── Navigate to search match across sections ──────────────────────────
+  const navRef = useRef(false)
+  useEffect(() => {
+    const results = searchRangesRef.current
+    if (results.length === 0 || currentSearchIndex < 0 || currentSearchIndex >= results.length) return
+    if (navRef.current) return // prevent re-entrant navigation
+
+    const match = results[currentSearchIndex]
+    const rendition = renditionRef.current
+    if (!rendition) return
+
+    navRef.current = true
+    const q = searchQuery?.trim() || ''
+
+    rendition.display(match.href).then(() => {
+      setTimeout(() => {
+        const contents = rendition.getContents()
+        if (!contents || contents.length === 0) { navRef.current = false; return }
+        const content = contents[0]
+        const doc = (content as any).document || content
+        if (!doc?.body) { applySearchHighlights(); navRef.current = false; return }
+
+        // Find the Nth occurrence within the rendered DOM
+        const walker = doc.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT)
+        let targetOccurrence = match.occurrenceIndex
+        let currentOccurrence = 0
+        let foundRange: Range | null = null
+
+        while (walker.nextNode()) {
+          const node = walker.currentNode as Text
+          const text = node.textContent || ''
+          const lowerText = text.toLowerCase()
+          let idx = lowerText.indexOf(q.toLowerCase())
+          while (idx !== -1) {
+            if (currentOccurrence === targetOccurrence) {
+              try {
+                const range = doc.createRange()
+                range.setStart(node, idx)
+                range.setEnd(node, idx + q.length)
+                foundRange = range
+              } catch {}
+              break
+            }
+            currentOccurrence++
+            idx = lowerText.indexOf(q.toLowerCase(), idx + q.length)
+          }
+          if (foundRange) break
+        }
+
+        if (foundRange) {
+          try {
+            const cfi = (content as any).cfiFromRange(foundRange)
+            if (cfi) {
+              rendition.display(cfi).then(() => {
+                setTimeout(() => { applySearchHighlights(); navRef.current = false }, 400)
+              })
+              return
+            }
+          } catch {}
+        }
+
+        applySearchHighlights()
+        navRef.current = false
+      }, 600)
+    }).catch(() => { navRef.current = false })
+  }, [currentSearchIndex])
 
   const goNext = useCallback(() => renditionRef.current?.next(), [])
   const goPrev = useCallback(() => renditionRef.current?.prev(), [])

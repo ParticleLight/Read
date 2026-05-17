@@ -4,6 +4,7 @@ import { safeText } from '../../utils/safeText'
 import { formatReadingTime, extractTextPreview, formatColors } from '../../utils/format'
 import { generatePdfPreview, generateCbzPreview } from '../../utils/preview'
 import { ConfirmDialog } from '../UI/ConfirmDialog'
+import { BookDetailDialog } from './BookDetailDialog'
 
 interface BookCardProps {
   book: Book
@@ -19,6 +20,8 @@ function BookCardInner({ book, onOpen, onDelete, onRemoveFromShelf, activeShelfI
   const [showMenu, setShowMenu] = useState(false)
   const [showShelfMenu, setShowShelfMenu] = useState(false)
   const [showConfirmDelete, setShowConfirmDelete] = useState(false)
+  const [showDetail, setShowDetail] = useState(false)
+  const [menuPos, setMenuPos] = useState({ x: 0, y: 0 })
   const objectUrlRef = useRef<string | null>(null)
 
   const bookshelves = useLibraryStore((s) => s.bookshelves)
@@ -47,7 +50,7 @@ function BookCardInner({ book, onOpen, onDelete, onRemoveFromShelf, activeShelfI
     return () => { mounted = false; if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current) }
   }, [book.id, book.file_path, book.format])
 
-  const handleContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setShowMenu(!showMenu) }
+  const handleContextMenu = (e: React.MouseEvent) => { e.preventDefault(); setMenuPos({ x: e.clientX, y: e.clientY }); setShowMenu(true) }
 
   return (
     <div className="group relative cursor-pointer" onClick={() => onOpen(book.id)} onContextMenu={handleContextMenu} onMouseLeave={() => setShowMenu(false)}>
@@ -92,12 +95,16 @@ function BookCardInner({ book, onOpen, onDelete, onRemoveFromShelf, activeShelfI
 
       {/* Acrylic context menu */}
       {showMenu && (
-        <div className="absolute z-50 top-2 left-2 rounded-lg overflow-hidden shadow-win-lg py-0.5 min-w-[120px] animate-scale-in"
-          style={{ background: 'var(--acrylic-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--acrylic-border)' }}>
+        <div className="fixed z-50 rounded-lg overflow-hidden shadow-win-lg py-0.5 min-w-[120px] animate-scale-in"
+          style={{ left: menuPos.x, top: menuPos.y, background: 'var(--acrylic-bg)', backdropFilter: 'blur(24px)', border: '1px solid var(--acrylic-border)' }}>
           <button onClick={(e) => { e.stopPropagation(); onOpen(book.id); setShowMenu(false) }}
             className="w-full text-left px-4 py-2 text-sm transition-colors" style={{ color: 'var(--text-primary)' }}
             onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
             onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>打开</button>
+          <button onClick={(e) => { e.stopPropagation(); setShowDetail(true); setShowMenu(false) }}
+            className="w-full text-left px-4 py-2 text-sm transition-colors" style={{ color: 'var(--text-primary)' }}
+            onMouseEnter={(e) => e.currentTarget.style.background = 'var(--surface-hover)'}
+            onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>详情</button>
           {bookshelves.length > 0 && (
             <button onClick={(e) => { e.stopPropagation(); setShowShelfMenu(!showShelfMenu) }}
               className="w-full text-left px-4 py-2 text-sm transition-colors flex items-center justify-between" style={{ color: 'var(--text-primary)' }}
@@ -130,6 +137,9 @@ function BookCardInner({ book, onOpen, onDelete, onRemoveFromShelf, activeShelfI
       {showConfirmDelete && (
         <ConfirmDialog title="删除书籍" message={`确定要删除《${safeText(book.title)}》吗？此操作不可撤销。`} confirmText="删除" danger
           onConfirm={() => { onDelete(book.id); setShowConfirmDelete(false) }} onCancel={() => setShowConfirmDelete(false)} />
+      )}
+      {showDetail && (
+        <BookDetailDialog book={book} onClose={() => setShowDetail(false)} />
       )}
     </div>
   )

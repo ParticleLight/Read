@@ -541,6 +541,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     <ClCompile Include="F:\VScode\Read\particlebook-cpp\third_party\miniz.c" />
     <ClCompile Include="F:\VScode\Read\particlebook-cpp\third_party\miniz_tdef.c" />
     <ClCompile Include="F:\VScode\Read\particlebook-cpp\third_party\miniz_tinfl.c" />
+    <ResourceCompile Include="F:\VScode\Read\particlebook-cpp\src\ParticleBook.rc" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
