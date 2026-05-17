@@ -14,6 +14,88 @@
 #include <ctime>
 #include <mutex>
 
+static std::wstring Utf8ToWide(const std::string& s)
+{
+    if (s.empty()) return L"";
+    int len = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    std::wstring w(len, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, &w[0], len);
+    return w;
+}
+
+static std::string WideToUtf8(LPCWSTR w)
+{
+    int len = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
+    std::string s(len, '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w, -1, &s[0], len, nullptr, nullptr);
+    while (!s.empty() && s.back() == '\0') s.pop_back();
+    return s;
+}
+
+// ── MOBI → text conversion via mutool ────────────────────────────────
+
+static std::string ConvertMobiToHtml(const std::string& filePath)
+{
+    // Check file extension
+    std::string ext;
+    size_t dot = filePath.rfind('.');
+    if (dot != std::string::npos) {
+        ext = filePath.substr(dot);
+        for (auto& c : ext) c = (char)tolower((unsigned char)c);
+    }
+    if (ext != ".mobi" && ext != ".azw" && ext != ".azw3") return "";
+
+    // Find mutool.exe next to our exe
+    wchar_t exePathBuf[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePathBuf, MAX_PATH);
+    auto mutoolPath = (std::filesystem::path(exePathBuf).parent_path() / "mutool.exe").wstring();
+
+    // Create temp file for output
+    wchar_t tmpPath[MAX_PATH], tmpFile[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmpPath);
+    GetTempFileNameW(tmpPath, L"mbt", 0, tmpFile);
+    DeleteFileW(tmpFile);
+    std::wstring tmpFileExt = std::wstring(tmpFile) + L".txt";
+
+    // Build command: mutool convert -F text -o <tmp.txt> <file>
+    std::wstring cmdLine = L"\"" + mutoolPath + L"\" convert -F text -o \"" + tmpFileExt + L"\" \"" + Utf8ToWide(filePath) + L"\"";
+
+    SECURITY_ATTRIBUTES sa = { sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE };
+    PROCESS_INFORMATION pi = {};
+    STARTUPINFOW si = { sizeof(STARTUPINFOW) };
+    si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
+    si.wShowWindow = SW_HIDE;
+
+    BOOL ok = CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, FALSE,
+                             CREATE_NO_WINDOW | NORMAL_PRIORITY_CLASS,
+                             nullptr, nullptr, &si, &pi);
+    if (!ok) return "";
+
+    WaitForSingleObject(pi.hProcess, 30000);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
+
+    // Read converted HTML
+    HANDLE hFile = CreateFileW(tmpFileExt.c_str(), GENERIC_READ, FILE_SHARE_READ,
+                                nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return "";
+
+    LARGE_INTEGER liSize;
+    GetFileSizeEx(hFile, &liSize);
+    size_t size = (size_t)liSize.QuadPart;
+    if (size == 0 || size > 100 * 1024 * 1024) { CloseHandle(hFile); DeleteFileW(tmpFileExt.c_str()); return ""; }
+
+    std::string text(size, '\0');
+    DWORD bytesRead = 0;
+    ReadFile(hFile, &text[0], (DWORD)size, &bytesRead, nullptr);
+    CloseHandle(hFile);
+    DeleteFileW(tmpFileExt.c_str());
+
+    if (bytesRead == 0) return "";
+    while (!text.empty() && text.back() == '\0') text.pop_back();
+    return text;
+}
+
 static std::string DetectFormat(const std::string& path)
 {
     // Use string ops to avoid std::filesystem::path issues with CJK/parens in path
@@ -37,7 +119,10 @@ static std::string DetectFormat(const std::string& path)
 
 static std::string GetFileName(const std::string& path)
 {
-    size_t slash = path.rfind('\\');
+    size_t bs = path.rfind('\\');
+    size_t fs = path.rfind('/');
+    size_t slash = bs;
+    if (fs != std::string::npos && (bs == std::string::npos || fs > bs)) slash = fs;
     return (slash != std::string::npos) ? path.substr(slash + 1) : path;
 }
 
@@ -65,15 +150,6 @@ static json ExtractBasicMetadata(const std::string& path, const std::string&)
     size_t dot = filename.rfind('.');
     meta["title"] = (dot != std::string::npos) ? filename.substr(0, dot) : filename;
     return meta;
-}
-
-static std::string WideToUtf8(LPCWSTR w)
-{
-    int len = WideCharToMultiByte(CP_UTF8, 0, w, -1, nullptr, 0, nullptr, nullptr);
-    std::string s(len, '\0');
-    WideCharToMultiByte(CP_UTF8, 0, w, -1, &s[0], len, nullptr, nullptr);
-    while (!s.empty() && s.back() == '\0') s.pop_back();
-    return s;
 }
 
 static void DebugLog(const char* msg)
@@ -150,6 +226,14 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
         if (cache) {
             auto* cached = cache->Get(path);
             if (cached) return json(*cached);
+        }
+
+        // For MOBI files, convert to text via mutool first
+        std::string mobiText = ConvertMobiToHtml(path);
+        if (!mobiText.empty()) {
+            std::vector<uint8_t> data(mobiText.begin(), mobiText.end());
+            if (cache) cache->Put(path, data, 0);
+            return json(data);
         }
 
         // Convert UTF-8 path to wide for Windows API

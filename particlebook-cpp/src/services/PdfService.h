@@ -31,6 +31,7 @@ private:
         std::vector<PdfPageBounds> pageBounds;
     };
     std::vector<DocEntry> m_docs;
+    std::vector<std::string> m_tempFiles;
     int m_nextId = 1;
 
     std::string GetMutoolPath();

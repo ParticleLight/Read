@@ -8,6 +8,7 @@
 #include <fstream>
 #include <filesystem>
 #include <ctime>
+#include <vector>
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -54,11 +55,15 @@ static std::string Base64Encode(const void* data, size_t len)
 PdfService::PdfService() = default;
 PdfService::~PdfService()
 {
-    // Clean up temp files
+    // Clean up temp dirs
     for (auto& doc : m_docs) {
         std::error_code ec;
         std::string tmpDir = doc.filePath + ".mutool_tmp";
         std::filesystem::remove_all(Utf8ToWide(tmpDir), ec);
+    }
+    // Clean up patched MOBI temp files
+    for (auto& tf : m_tempFiles) {
+        DeleteFileW(Utf8ToWide(tf).c_str());
     }
 }
 
@@ -70,6 +75,87 @@ std::string PdfService::GetMutoolPath()
     GetModuleFileNameW(nullptr, exePath, MAX_PATH);
     auto p = std::filesystem::path(exePath).parent_path() / "mutool.exe";
     return p.string();
+}
+
+// ── MOBI encoding patch ────────────────────────────────────────────────
+// MuPDF's mobi.c defaults text_encoding to LATIN_1 (0) when the MOBI header
+// is missing or incomplete. Most Chinese MOBI files are UTF-8. Patch the
+// encoding field so mutool renders CJK text correctly.
+
+static std::string PatchMobiEncoding(const std::string& filePath)
+{
+    std::string ext;
+    size_t dot = filePath.rfind('.');
+    if (dot != std::string::npos) {
+        ext = filePath.substr(dot);
+        for (auto& c : ext) c = (char)tolower((unsigned char)c);
+    }
+    if (ext != ".mobi" && ext != ".azw" && ext != ".azw3") return filePath;
+
+    // Read entire file
+    HANDLE hFile = CreateFileW(Utf8ToWide(filePath).c_str(), GENERIC_READ,
+                                FILE_SHARE_READ, nullptr, OPEN_EXISTING,
+                                FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hFile == INVALID_HANDLE_VALUE) return filePath;
+
+    LARGE_INTEGER liSize;
+    GetFileSizeEx(hFile, &liSize);
+    size_t size = (size_t)liSize.QuadPart;
+    if (size == 0 || size > 100 * 1024 * 1024) { CloseHandle(hFile); return filePath; }
+
+    std::vector<uint8_t> data(size);
+    DWORD bytesRead = 0;
+    ReadFile(hFile, data.data(), (DWORD)size, &bytesRead, nullptr);
+    CloseHandle(hFile);
+    if (bytesRead != size) return filePath;
+
+    // Search for "MOBI" magic and patch text_encoding (offset +12 from "MOBI")
+    bool patched = false;
+    for (size_t i = 0; i + 16 < size; i++) {
+        if (data[i] == 'M' && data[i+1] == 'O' && data[i+2] == 'B' && data[i+3] == 'I') {
+            size_t encOff = i + 12; // skip magic(4) + header_len(4) + mobi_type(4)
+            if (encOff + 4 <= size) {
+                uint32_t enc = data[encOff] | ((uint32_t)data[encOff+1] << 8)
+                             | ((uint32_t)data[encOff+2] << 16) | ((uint32_t)data[encOff+3] << 24);
+                // 0 = Latin-1, 1252 = CP1252 → change to 65001 = UTF-8
+                if (enc == 0 || enc == 1252) {
+                    uint32_t utf8 = 65001;
+                    data[encOff]   = (uint8_t)(utf8 & 0xFF);
+                    data[encOff+1] = (uint8_t)((utf8 >> 8) & 0xFF);
+                    data[encOff+2] = (uint8_t)((utf8 >> 16) & 0xFF);
+                    data[encOff+3] = (uint8_t)((utf8 >> 24) & 0xFF);
+                    patched = true;
+                }
+            }
+            break; // only first MOBI header matters
+        }
+    }
+    if (!patched) return filePath;
+
+    // Write patched copy
+    wchar_t tmpPath[MAX_PATH], tmpFile[MAX_PATH];
+    GetTempPathW(MAX_PATH, tmpPath);
+    GetTempFileNameW(tmpPath, L"mbp", 0, tmpFile);
+    std::string patchedPath = WideToUtf8(tmpFile);
+
+    // Rename to keep original extension so mutool detects format
+    DeleteFileW(tmpFile);
+    std::wstring patchedWithExt = Utf8ToWide(patchedPath + ext);
+    // Remove random suffix, use fixed name
+    std::wstring tmpDir = tmpPath;
+    std::wstring fixedName = L"pb_mobi_" + std::to_wstring(GetCurrentProcessId()) + Utf8ToWide(ext);
+    patchedPath = WideToUtf8((tmpDir + fixedName).c_str());
+
+    HANDLE hOut = CreateFileW((tmpDir + fixedName).c_str(), GENERIC_WRITE, 0, nullptr,
+                               CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (hOut == INVALID_HANDLE_VALUE) return filePath;
+
+    DWORD written = 0;
+    WriteFile(hOut, data.data(), (DWORD)size, &written, nullptr);
+    CloseHandle(hOut);
+    if (written != size) { DeleteFileW((tmpDir + fixedName).c_str()); return filePath; }
+
+    return patchedPath;
 }
 
 // ── Run mutool subprocess ────────────────────────────────────────────
@@ -137,6 +223,10 @@ PdfOpenResult PdfService::Open(const std::string& filePath)
     PdfOpenResult result = {};
     result.id = m_nextId++;
 
+    // Patch MOBI encoding before mutool (MuPDF defaults to Latin-1)
+    std::string actualPath = PatchMobiEncoding(filePath);
+    if (actualPath != filePath) m_tempFiles.push_back(actualPath);
+
     // Debug log
     wchar_t exePath[MAX_PATH];
     GetModuleFileNameW(nullptr, exePath, MAX_PATH);
@@ -152,17 +242,17 @@ PdfOpenResult PdfService::Open(const std::string& filePath)
         }
     };
 
-    logMsg(("opening " + filePath).c_str());
+    logMsg(("opening " + actualPath).c_str());
 
     // Check file exists
-    if (GetFileAttributesW(Utf8ToWide(filePath).c_str()) == INVALID_FILE_ATTRIBUTES) {
+    if (GetFileAttributesW(Utf8ToWide(actualPath).c_str()) == INVALID_FILE_ATTRIBUTES) {
         logMsg("file not found");
         return result;
     }
 
     // Get page info with mutool pages
     std::string output;
-    std::string args = "pages \"" + filePath + "\"";
+    std::string args = "pages \"" + actualPath + "\"";
     if (!RunMutool(args, output)) {
         logMsg("mutool failed to run");
         return result;
@@ -205,7 +295,7 @@ PdfOpenResult PdfService::Open(const std::string& filePath)
     if (result.pageCount > 0) {
         DocEntry entry;
         entry.id = result.id;
-        entry.filePath = filePath;
+        entry.filePath = actualPath;
         entry.pageCount = result.pageCount;
         entry.pageBounds = bounds;
         m_docs.push_back(std::move(entry));
