@@ -4,7 +4,7 @@
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow)
 {
-    // Enable per-monitor DPI awareness for crisp rendering
+    SetEnvironmentVariableW(L"ELECTRON_RUN_AS_NODE", nullptr);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
     try {

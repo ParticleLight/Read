@@ -33,9 +33,10 @@ public:
 
 private:
     void SetupDownloadHandler();
-    void StartDownloadThread(const std::string& url);
+    void StartDownloadThread(const std::string& url, const std::string& fileName = "", const std::string& cookies = "");
     std::string GetDownloadPath() const;
     void OnDownloadDone(const std::string& path, const std::string& fileName);
+    void DoImport(const std::string& path, const std::string& fileName);
 
     BridgeServer* m_bridge;
     WebViewHost* m_host = nullptr;
@@ -46,7 +47,10 @@ private:
     HWND m_hwnd = nullptr;
     bool m_zlibActive = false;
     bool m_downloadRegistered = false;
+    bool m_zlibDlInProgress = false;
+    std::string m_zlibUrlBefore;
     EventRegistrationToken m_downloadToken = {};
+    EventRegistrationToken m_navToken = {};
 };
 
 void RegisterZlibHandlers(BridgeServer* bridge, ZLibraryService* zlib);

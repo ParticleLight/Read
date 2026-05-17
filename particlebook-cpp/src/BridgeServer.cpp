@@ -26,8 +26,22 @@ void BridgeServer::HandleMessage(const std::string& rawJson)
             if (m_webview && m_webview->GetWebView()) {
                 m_webview->GetWebView()->ExecuteScript(L"location.reload()", nullptr);
             }
+        } else if (type == "zlibNavigate") {
+            std::string action = msg.value("action", "");
+            if (action == "back" && m_webview && m_webview->GetWebView()) {
+                BOOL can = FALSE; m_webview->GetWebView()->get_CanGoBack(&can);
+                if (can) m_webview->GetWebView()->GoBack();
+            } else if (action == "forward" && m_webview && m_webview->GetWebView()) {
+                BOOL can = FALSE; m_webview->GetWebView()->get_CanGoForward(&can);
+                if (can) m_webview->GetWebView()->GoForward();
+            } else if (action == "reload" && m_webview && m_webview->GetWebView()) {
+                m_webview->GetWebView()->Reload();
+            }
         } else if (type == "zlibClose") {
-            if (m_webview) m_webview->ReloadPage();
+            auto it = m_methods.find("zlib:hide");
+            if (it != m_methods.end()) {
+                try { it->second(json::object()); } catch (...) {}
+            }
         } else if (type == "zlibSwitchTo") {
             auto it = m_methods.find("zlib:switchMirror");
             if (it != m_methods.end()) {

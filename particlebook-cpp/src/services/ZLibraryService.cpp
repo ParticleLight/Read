@@ -22,6 +22,13 @@
 using namespace Microsoft::WRL;
 
 #define WM_ZLIB_DOWNLOAD_DONE (WM_USER + 10)
+#define WM_ZLIB_DOWNLOAD_PROGRESS (WM_USER + 11)
+#define WM_ZLIB_REFRESH_LIBRARY (WM_USER + 12)
+#define WM_ZLIB_DO_IMPORT (WM_USER + 13)
+#define WM_ZLIB_DOWNLOAD_FAILED (WM_USER + 14)
+
+struct DLProgress { std::string fn; int64_t recv; int64_t tot; };
+struct DLFail { std::string fn; std::string reason; };
 
 static std::wstring ToWide(const std::string& s) {
     if (s.empty()) return L"";
@@ -38,8 +45,34 @@ static std::string ToNarrow(LPCWSTR w) {
 
 static const std::vector<std::string> FALLBACK_MIRRORS = {
     "https://zh.101fbiwarning.ru/","https://zh.zzz101.ru/","https://zh.1lib.sk/",
-    "https://zh.z-library.sk/","https://zh.singlelogin.re/","https://zh.singlelogin.rs/",
+    "https://zh.z-library.sk/","https://zh.singlelogin.rs/",
 };
+
+// Permanent blocklist: domains that were Z-Library mirrors but are now adult sites
+static const std::vector<std::string> BLOCKED_DOMAINS = {
+    "singlelogin.re",
+};
+
+static bool IsZlibHost(const std::string& host) {
+    if (host.empty()) return false;
+    for (const auto& bd : BLOCKED_DOMAINS) {
+        if (host.find(bd) != std::string::npos) return false;
+    }
+    // Blocklist keywords: known non-ZLibrary domains that might slip through
+    if (host.find("porn") != std::string::npos) return false;
+    if (host.find("xxx") != std::string::npos) return false;
+    if (host.find("sex") != std::string::npos) return false;
+    if (host.find("av") == 0 || host.find(".av") != std::string::npos) return false;
+    // Allowlist: Z-Library related domain patterns
+    if (host.find("z-lib") != std::string::npos) return true;
+    if (host.find("z-library") != std::string::npos) return true;
+    if (host.find("zlibrary") != std::string::npos) return true;
+    if (host.find("1lib") != std::string::npos) return true;
+    if (host.find("singlelogin") != std::string::npos) return true;
+    if (host.find("fbiwarning") != std::string::npos) return true;
+    if (host.find("bookfi") != std::string::npos) return true;
+    return false;
+}
 
 static std::string FetchUrl(const std::string& url) {
     size_t se = url.find("://"); if (se == std::string::npos) return "";
@@ -73,7 +106,11 @@ json ZLibraryService::FetchMirrors() {
     std::regex linkRe("href=\"(https?://[^\"]+)\"", std::regex::icase);
     for (auto it = std::sregex_iterator(html.begin(), html.end(), linkRe); it != std::sregex_iterator(); ++it) {
         std::string u = (*it)[1];
-        if (u.find("z-lib") != std::string::npos || u.find("1lib") != std::string::npos || u.find("zzz") != std::string::npos || u.find("singlelogin") != std::string::npos || u.find("fbiwarning") != std::string::npos || u.find("zlibrary") != std::string::npos || u.find("bookfi") != std::string::npos) {
+        size_t ss = u.find("://");
+        size_t hs = ss != std::string::npos ? ss + 3 : 0;
+        size_t ps = u.find('/', hs);
+        std::string host = ps != std::string::npos ? u.substr(hs, ps - hs) : u.substr(hs);
+        if (IsZlibHost(host)) {
             if (u.back() != '/') u += '/';
             if (std::find(found.begin(), found.end(), u) == found.end()) found.push_back(u);
         }
@@ -95,7 +132,6 @@ json ZLibraryService::SwitchMirror(int index) {
     m_bridge->EmitEvent("zlib:mirrorChanged", GetMirrorInfo());
     return GetMirrorInfo();
 }
-
 // ── Navigate main WebView2 + inject floating toolbar ───────────────────────
 
 json ZLibraryService::Show() {
@@ -108,6 +144,7 @@ json ZLibraryService::Show() {
                       nullptr, nullptr, SW_SHOWNORMAL);
         return json(nullptr);
     }
+    wv->ExecuteScript(L"(function(){var c=document.getElementById('_pb_cover');if(!c){c=document.createElement('div');c.id='_pb_cover';c.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#0f0f12';document.body.appendChild(c);}})()", nullptr);
     wv->Navigate(ToWide(m_mirrors[m_currentMirror]).c_str());
     m_bridge->EmitEvent("zlib:mirrorChanged", GetMirrorInfo());
     return json(nullptr);
@@ -167,197 +204,269 @@ void ZLibraryService::SetupDownloadHandler()
     m_host->SetDownloadCallback([this](const std::string& path, const std::string& fileName) {
         OnDownloadDone(path, fileName);
     });
+    m_host->SetDownloadProgressCallback([this](const std::string& fileName, int64_t recv, int64_t tot) {
+        m_bridge->EmitEvent("zlib:downloadProgress", {{"fileName", fileName},{"received", recv},{"total", tot}});
+    });
+    m_host->SetImportCallback([this](const std::string& path, const std::string& fileName) {
+        DoImport(path, fileName);
+    });
+    m_host->SetDownloadFailCallback([this](const std::string& fileName, const std::string& reason) {
+        m_zlibDlInProgress = false;
+        m_bridge->EmitEvent("zlib:downloadError", {{"fileName", fileName}, {"error", reason}});
+    });
 
     auto* wv = m_host->GetWebView();
 
-    // ── NewWindowRequested — intercept window.open() downloads, start WinHTTP ──
-    ComPtr<ICoreWebView2_2> wv2;
-    if (SUCCEEDED(wv->QueryInterface(IID_PPV_ARGS(&wv2)))) {
-        wv2->add_NewWindowRequested(
-            Callback<ICoreWebView2NewWindowRequestedEventHandler>(
-                [this](ICoreWebView2*, ICoreWebView2NewWindowRequestedEventArgs* args) -> HRESULT {
+    // ── NavigationStarting — prevent leaving Z-Library domains ──
+    ComPtr<ICoreWebView2_2> wv2nav;
+    if (SUCCEEDED(wv->QueryInterface(IID_PPV_ARGS(&wv2nav)))) {
+        wv2nav->add_NavigationStarting(
+            Callback<ICoreWebView2NavigationStartingEventHandler>(
+                [this](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
                     if (!m_zlibActive) return S_OK;
                     LPWSTR uriRaw = nullptr;
                     if (FAILED(args->get_Uri(&uriRaw)) || !uriRaw) return S_OK;
-                    std::string url = ToNarrow(uriRaw);
+                    std::string uri = ToNarrow(uriRaw);
                     CoTaskMemFree(uriRaw);
-                    MessageBoxW(nullptr, L"NewWindowRequested!", L"ZLib NW", MB_OK);
-                    args->put_Handled(TRUE);  // cancel popup, stay on Z-Library page
-
-                    // Start WinHTTP download directly (don't navigate main window)
-                    StartDownloadThread(url);
+                    bool isZlib = uri.find("z-lib") != std::string::npos
+                               || uri.find("zlib") != std::string::npos
+                               || uri.find("1lib") != std::string::npos
+                               || uri.find("zzz") != std::string::npos
+                               || uri.find("singlelogin") != std::string::npos
+                               || uri.find("fbiwarning") != std::string::npos
+                               || uri.find("bookfi") != std::string::npos;
+                    if (!isZlib) {
+                        args->put_Cancel(TRUE);
+                        if (!m_mirrors.empty())
+                            m_host->GetWebView()->Navigate(ToWide(m_mirrors[m_currentMirror]).c_str());
+                    }
                     return S_OK;
-                }).Get(), nullptr);
+                }).Get(), &m_navToken);
     }
 
-    // ── DownloadStarting — intercept direct downloads (kept as fallback) ──
+    // ── DownloadStarting — intercept download, use WinHTTP ──
     ComPtr<ICoreWebView2_4> wv4;
-    if (FAILED(wv->QueryInterface(IID_PPV_ARGS(&wv4)))) return;
+    if (SUCCEEDED(wv->QueryInterface(IID_PPV_ARGS(&wv4)))) {
+        wv4->add_DownloadStarting(
+            Callback<ICoreWebView2DownloadStartingEventHandler>(
+                [this](ICoreWebView2*, ICoreWebView2DownloadStartingEventArgs* args) -> HRESULT {
+                    if (!m_zlibActive) return S_OK;
+                    if (m_zlibDlInProgress) { args->put_Handled(TRUE); return S_OK; }
+                    m_zlibDlInProgress = true;
 
-    wv4->add_DownloadStarting(
-        Callback<ICoreWebView2DownloadStartingEventHandler>(
-            [this](ICoreWebView2*, ICoreWebView2DownloadStartingEventArgs* args) -> HRESULT {
-                if (!m_zlibActive) return S_OK;
+                    ComPtr<ICoreWebView2DownloadOperation> op;
+                    if (FAILED(args->get_DownloadOperation(&op))) { m_zlibDlInProgress = false; return S_OK; }
+                    LPWSTR uriRaw = nullptr;
+                    std::string uri;
+                    if (SUCCEEDED(op->get_Uri(&uriRaw)) && uriRaw) { uri = ToNarrow(uriRaw); CoTaskMemFree(uriRaw); }
 
-                ComPtr<ICoreWebView2DownloadOperation> op;
-                if (FAILED(args->get_DownloadOperation(&op))) return S_OK;
-                LPWSTR uriRaw = nullptr;
-                if (FAILED(op->get_Uri(&uriRaw)) || !uriRaw) return S_OK;
-                std::string url = ToNarrow(uriRaw);
-                CoTaskMemFree(uriRaw);
+                    std::string fileName = "download";
+                    size_t fnp = uri.find("filename=");
+                    if (fnp != std::string::npos) {
+                        std::string fn = uri.substr(fnp + 9);
+                        size_t amp = fn.find('&');
+                        if (amp != std::string::npos) fn = fn.substr(0, amp);
+                        std::string dec;
+                        for (size_t i = 0; i < fn.size(); ++i) {
+                            if (fn[i] == '%' && i + 2 < fn.size()) {
+                                char hex[3] = {fn[i+1], fn[i+2], 0};
+                                dec += (char)strtol(hex, nullptr, 16);
+                                i += 2;
+                            } else if (fn[i] == '+') dec += ' ';
+                            else dec += fn[i];
+                        }
+                        if (!dec.empty()) fileName = dec;
+                    }
+                    if (fileName.size() > 150) {
+                        size_t maxLen = 140;
+                        // Back up to UTF-8 boundary
+                        while (maxLen > 0 && (fileName[maxLen] & 0xC0) == 0x80) maxLen--;
+                        size_t dot = fileName.rfind('.');
+                        if (dot != std::string::npos && dot > 120 && dot < 250)
+                            fileName = fileName.substr(0, maxLen) + fileName.substr(dot);
+                        else
+                            fileName = fileName.substr(0, maxLen);
+                    }
 
-                MessageBoxW(nullptr, L"DownloadStarting!", L"ZLib DS", MB_OK);
-                args->put_Handled(TRUE);
-                StartDownloadThread(url);
-                return S_OK;
-            }).Get(), &m_downloadToken);
+                    args->put_Handled(TRUE);
+
+                    // Get cookies, then download via WinHTTP
+                    ComPtr<ICoreWebView2_2> wv2;
+                    if (m_host && m_host->GetWebView() && SUCCEEDED(m_host->GetWebView()->QueryInterface(IID_PPV_ARGS(&wv2)))) {
+                        ComPtr<ICoreWebView2CookieManager> cm;
+                        if (SUCCEEDED(wv2->get_CookieManager(&cm))) {
+                            cm->GetCookies(ToWide(uri).c_str(),
+                                Callback<ICoreWebView2GetCookiesCompletedHandler>(
+                                    [this, uri, fileName](HRESULT, ICoreWebView2CookieList* cl) -> HRESULT {
+                                        std::string ck;
+                                        if (cl) {
+                                            UINT n = 0; cl->get_Count(&n);
+                                            for (UINT i = 0; i < n; i++) {
+                                                ComPtr<ICoreWebView2Cookie> c;
+                                                if (SUCCEEDED(cl->GetValueAtIndex(i, &c)) && c) {
+                                                    LPWSTR nm = nullptr, vl = nullptr;
+                                                    c->get_Name(&nm); c->get_Value(&vl);
+                                                    if (nm && vl) {
+                                                        if (!ck.empty()) ck += "; ";
+                                                        ck += ToNarrow(nm) + "=" + ToNarrow(vl);
+                                                    }
+                                                    if (nm) CoTaskMemFree(nm);
+                                                    if (vl) CoTaskMemFree(vl);
+                                                }
+                                            }
+                                        }
+                                        StartDownloadThread(uri, fileName, ck);
+                                        return S_OK;
+                                    }).Get());
+                            return S_OK;
+                        }
+                    }
+                    StartDownloadThread(uri, fileName, "");
+                    return S_OK;
+                }).Get(), &m_downloadToken);
+    }
 }
 
-void ZLibraryService::StartDownloadThread(const std::string& url)
+void ZLibraryService::StartDownloadThread(const std::string& startUrl, const std::string& fileName, const std::string& cookies)
 {
-    MessageBoxW(nullptr, ToWide(url).c_str(), L"StartDownload", MB_OK);
-
-    // Extract filename from ?filename= query param
-    std::string fileName = "download";
-    size_t fnp = url.find("filename=");
-    if (fnp != std::string::npos) {
-        std::string fn = url.substr(fnp + 9);
-        size_t amp = fn.find('&');
-        if (amp != std::string::npos) fn = fn.substr(0, amp);
-        std::string decoded;
-        for (size_t i = 0; i < fn.size(); ++i) {
-            if (fn[i] == '%' && i + 2 < fn.size()) {
-                char hex[3] = {fn[i+1], fn[i+2], 0};
-                decoded += (char)strtol(hex, nullptr, 16);
-                i += 2;
-            } else if (fn[i] == '+') {
-                decoded += ' ';
-            } else {
-                decoded += fn[i];
-            }
-        }
-        if (!decoded.empty()) fileName = decoded;
-    }
-
-    std::string downloadPath = GetDownloadPath() + "/" + fileName;
+    std::string fn = fileName.empty() ? "download" : fileName;
+    std::string downloadPath = GetDownloadPath() + "/" + fn;
     std::filesystem::create_directories(GetDownloadPath(), std::error_code{});
 
-    // Show "downloading" in toolbar via ExecuteScript (bypasses event system)
-    if (m_host && m_host->GetWebView()) {
-        std::wstring fnW = ToWide(fileName);
-        // Escape single quotes in filename
-        size_t pos = 0;
-        while ((pos = fnW.find(L'\'', pos)) != std::wstring::npos) {
-            fnW.insert(pos, L"\\"); pos += 2;
-        }
-        std::wstring script = L"(function(){"
-            L"var z=document.getElementById('zb-dl');if(z)z.style.display='flex';"
-            L"var p=document.getElementById('zb-dl-pct');if(p)p.textContent='下载中';"
-            L"var f=document.getElementById('zb-dl-fill');if(f)f.style.width='10%';"
-            L"var n=document.getElementById('zb-ntf');if(n){n.textContent='下载中: " + fnW + L"';n.className='info';n.style.display='block';}"
-            L"})()";
-        m_host->GetWebView()->ExecuteScript(script.c_str(), nullptr);
-    }
+    m_bridge->EmitEvent("zlib:downloadStart", {{"fileName", fn}});
 
     HWND hwnd = m_hwnd;
-    BridgeServer* bridge = m_bridge;
-    std::thread([url, fileName, downloadPath, hwnd, bridge]() {
-                    size_t se = url.find("://");
-                    if (se == std::string::npos) return;
-                    bool https = (url.substr(0, se) == "https");
-                    size_t hs = se + 3;
-                    size_t ps = url.find('/', hs);
-                    std::string host, path;
-                    if (ps != std::string::npos) { host = url.substr(hs, ps - hs); path = url.substr(ps); }
-                    else { host = url.substr(hs); path = "/"; }
+    std::thread([startUrl, fn, downloadPath, cookies, hwnd]() {
+        auto fail = [&](const std::string& reason) {
+            if (hwnd) {
+                auto* d = new DLFail{fn, reason};
+                PostMessage(hwnd, WM_ZLIB_DOWNLOAD_FAILED, 0, reinterpret_cast<LPARAM>(d));
+            }
+        };
 
-                    HINTERNET hS = WinHttpOpen(L"PB/1.9", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, nullptr, nullptr, 0);
-                    if (!hS) return;
-                    HINTERNET hC = WinHttpConnect(hS, ToWide(host).c_str(), https ? 443 : 0, 0);
-                    if (!hC) { WinHttpCloseHandle(hS); return; }
-                    HINTERNET hR = WinHttpOpenRequest(hC, L"GET", ToWide(path).c_str(), nullptr, nullptr, nullptr,
-                        https ? WINHTTP_FLAG_SECURE : 0);
-                    if (!hR) { WinHttpCloseHandle(hC); WinHttpCloseHandle(hS); return; }
+        std::string url = startUrl;
+        for (int redir = 0; redir < 5; redir++) {
+            size_t se = url.find("://");
+            if (se == std::string::npos) { fail("invalid_url"); return; }
+            bool https = (url.substr(0, se) == "https");
+            size_t hs = se + 3;
+            size_t ps = url.find('/', hs);
+            std::string host, path;
+            if (ps != std::string::npos) { host = url.substr(hs, ps - hs); path = url.substr(ps); }
+            else { host = url.substr(hs); path = "/"; }
 
-                    if (!WinHttpSendRequest(hR, nullptr, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hR, nullptr)) {
-                        WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
-                        if (hwnd) PostMessage(hwnd, WM_ZLIB_DOWNLOAD_DONE, 0, 0);
-                        return;
-                    }
+            HINTERNET hS = WinHttpOpen(L"PB/1.9", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, nullptr, nullptr, 0);
+            if (!hS) { fail("http_open_failed"); return; }
+            HINTERNET hC = WinHttpConnect(hS, ToWide(host).c_str(), https ? 443 : 0, 0);
+            if (!hC) { WinHttpCloseHandle(hS); fail("connect_failed"); return; }
+            HINTERNET hR = WinHttpOpenRequest(hC, L"GET", ToWide(path).c_str(), nullptr, nullptr, nullptr,
+                https ? WINHTTP_FLAG_SECURE : 0);
+            if (!hR) { WinHttpCloseHandle(hC); WinHttpCloseHandle(hS); fail("request_failed"); return; }
 
-                    DWORD contentLength = 0, dwSize = sizeof(contentLength);
-                    WinHttpQueryHeaders(hR, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER,
-                        nullptr, &contentLength, &dwSize, nullptr);
+            if (!cookies.empty()) {
+                std::wstring ch = L"Cookie: " + ToWide(cookies);
+                WinHttpAddRequestHeaders(hR, ch.c_str(), (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            }
+            WinHttpAddRequestHeaders(hR, L"User-Agent: Mozilla/5.0", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
 
-                    HANDLE hFile = CreateFileW(ToWide(downloadPath).c_str(), GENERIC_WRITE, 0, nullptr,
-                        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-                    if (hFile == INVALID_HANDLE_VALUE) {
-                        WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
-                        if (hwnd) PostMessage(hwnd, WM_ZLIB_DOWNLOAD_DONE, 0, 0);
-                        return;
-                    }
+            if (!WinHttpSendRequest(hR, nullptr, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hR, nullptr)) {
+                WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+                fail("network_error");
+                return;
+            }
 
-                    char buf[65536]; DWORD bytesRead; int64_t totalRead = 0;
-                    while (WinHttpReadData(hR, buf, sizeof(buf), &bytesRead) && bytesRead > 0) {
-                        DWORD written;
-                        WriteFile(hFile, buf, bytesRead, &written, nullptr);
-                        totalRead += bytesRead;
-                    }
-                    CloseHandle(hFile);
+            DWORD sc = 0, sz = sizeof(sc);
+            WinHttpQueryHeaders(hR, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, nullptr, &sc, &sz, nullptr);
+
+            if (sc == 301 || sc == 302) {
+                WCHAR loc[2048] = {}; DWORD ls = sizeof(loc);
+                if (WinHttpQueryHeaders(hR, WINHTTP_QUERY_LOCATION, nullptr, loc, &ls, nullptr)) {
+                    url = ToNarrow(loc);
                     WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+                    continue;
+                }
+            }
 
-                    if (totalRead > 0 && hwnd) {
-                        wchar_t mb[256];
-                        swprintf(mb, 256, L"DL OK: %lld bytes", (long long)totalRead);
-                        MessageBoxW(nullptr, mb, L"Thread done", MB_OK);
-                        auto* data = new std::pair<std::string, std::string>(downloadPath, fileName);
-                        PostMessage(hwnd, WM_ZLIB_DOWNLOAD_DONE, 1, reinterpret_cast<LPARAM>(data));
-                    } else if (hwnd) {
-                        MessageBoxW(nullptr, L"DL failed: 0 bytes", L"Thread done", MB_OK);
-                        PostMessage(hwnd, WM_ZLIB_DOWNLOAD_DONE, 0, 0);
-                    } else {
-                        MessageBoxW(nullptr, L"No hwnd!", L"Thread done", MB_OK);
-                    }
-                }).detach();
+            if (sc >= 400) {
+                WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+                fail("http_" + std::to_string(sc));
+                return;
+            }
+
+            DWORD cl = 0; sz = sizeof(cl);
+            WinHttpQueryHeaders(hR, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER, nullptr, &cl, &sz, nullptr);
+            int64_t total = cl;
+
+            HANDLE hFile = CreateFileW(ToWide(downloadPath).c_str(), GENERIC_WRITE, 0, nullptr,
+                CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+            if (hFile == INVALID_HANDLE_VALUE) {
+                WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+                fail("file_create_failed");
+                return;
+            }
+
+            char buf[65536]; DWORD br; int64_t tr = 0, lp = 0;
+            while (WinHttpReadData(hR, buf, sizeof(buf), &br) && br > 0) {
+                DWORD wr; WriteFile(hFile, buf, br, &wr, nullptr);
+                tr += br;
+                if (hwnd && tr - lp >= 262144) {
+                    auto* pd = new DLProgress{fn, tr, total};
+                    PostMessage(hwnd, WM_ZLIB_DOWNLOAD_PROGRESS, 0, reinterpret_cast<LPARAM>(pd));
+                    lp = tr;
+                }
+            }
+            if (hwnd && tr > lp) {
+                auto* pd = new DLProgress{fn, tr, total};
+                PostMessage(hwnd, WM_ZLIB_DOWNLOAD_PROGRESS, 0, reinterpret_cast<LPARAM>(pd));
+            }
+            CloseHandle(hFile);
+            WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+
+            if (tr > 0 && hwnd) {
+                auto* d = new std::pair<std::string, std::string>(downloadPath, fn);
+                PostMessage(hwnd, WM_ZLIB_DOWNLOAD_DONE, 1, reinterpret_cast<LPARAM>(d));
+            } else {
+                fail("empty_response");
+            }
+            return;
+        }
+        fail("too_many_redirects");
+    }).detach();
 }
 
 void ZLibraryService::OnDownloadDone(const std::string& downloadPath, const std::string& fileName)
 {
-    // Called on MAIN THREAD — safe to call EmitEvent and InvokeMethod
-    json comp;
-    comp["fileName"] = fileName;
-    comp["path"] = downloadPath;
-    m_bridge->EmitEvent("zlib:downloadComplete", comp);
+    m_bridge->EmitEvent("zlib:downloadComplete", {{"fileName", fileName}, {"path", downloadPath}});
 
-    json params;
-    params["paths"] = json::array({downloadPath});
-    auto result = m_bridge->InvokeMethod("book:import", params);
-    if (result.is_array() && result.size() > 0) {
+    if (m_hwnd) {
+        auto* d = new std::pair<std::string, std::string>(downloadPath, fileName);
+        PostMessage(m_hwnd, WM_ZLIB_DO_IMPORT, 0, reinterpret_cast<LPARAM>(d));
+    }
+}
+
+void ZLibraryService::DoImport(const std::string& downloadPath, const std::string& fileName)
+{
+    m_zlibDlInProgress = false;
+    m_bridge->EmitEvent("zlib:importStart", {{"fileName", fileName}});
+
+    bool success = false;
+    std::string errMsg;
+    try {
+        json params;
+        params["paths"] = json::array({downloadPath});
+        auto result = m_bridge->InvokeMethod("book:import", params);
+        success = result.is_array() && result.size() > 0;
+        if (!success) errMsg = "import_failed";
+    } catch (const std::exception& e) {
+        errMsg = std::string("import_exception:") + e.what();
+    }
+
+    if (success) {
         m_bridge->EmitEvent("zlib:importComplete", {{"fileName", fileName}});
         m_bridge->EmitEvent("menu:importBooks", json::object());
-        if (m_host && m_host->GetWebView()) {
-            std::wstring fnW = ToWide(fileName);
-            size_t pos = 0;
-            while ((pos = fnW.find(L'\'', pos)) != std::wstring::npos) { fnW.insert(pos, L"\\"); pos += 2; }
-            std::wstring script = L"(function(){"
-                L"var z=document.getElementById('zb-dl');if(z)z.style.display='none';"
-                L"var n=document.getElementById('zb-ntf');if(n){n.textContent='已导入书架: " + fnW + L"';n.className='ok';n.style.display='block';setTimeout(function(){n.style.display='none'},4000);}"
-                L"})()";
-            m_host->GetWebView()->ExecuteScript(script.c_str(), nullptr);
-        }
+        if (m_hwnd) PostMessage(m_hwnd, WM_ZLIB_REFRESH_LIBRARY, 1, 0);
     } else {
-        m_bridge->EmitEvent("zlib:importError",
-            {{"fileName", fileName}, {"error", "Import failed"}});
-        if (m_host && m_host->GetWebView()) {
-            std::wstring fnW = ToWide(fileName);
-            size_t pos = 0;
-            while ((pos = fnW.find(L'\'', pos)) != std::wstring::npos) { fnW.insert(pos, L"\\"); pos += 2; }
-            std::wstring script = L"(function(){"
-                L"var z=document.getElementById('zb-dl');if(z)z.style.display='none';"
-                L"var n=document.getElementById('zb-ntf');if(n){n.textContent='导入失败(可能已存在): " + fnW + L"';n.className='err';n.style.display='block';setTimeout(function(){n.style.display='none'},4000);}"
-                L"})()";
-            m_host->GetWebView()->ExecuteScript(script.c_str(), nullptr);
-        }
+        m_bridge->EmitEvent("zlib:importError", {{"fileName", fileName}, {"error", errMsg}});
     }
 }
 

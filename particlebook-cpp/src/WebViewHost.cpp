@@ -9,6 +9,13 @@
 #define WM_RELOAD_PAGE      (WM_USER + 2)
 #define WM_RELOAD_PAGE_STEP2 (WM_USER + 3)
 #define WM_ZLIB_DOWNLOAD_DONE (WM_USER + 10)
+#define WM_ZLIB_DOWNLOAD_PROGRESS (WM_USER + 11)
+#define WM_ZLIB_REFRESH_LIBRARY (WM_USER + 12)
+#define WM_ZLIB_DO_IMPORT (WM_USER + 13)
+#define WM_ZLIB_DOWNLOAD_FAILED (WM_USER + 14)
+
+struct DLProgressData { std::string fileName; int64_t received; int64_t total; };
+struct DLFailData { std::string fileName; std::string reason; };
 
 using namespace Microsoft::WRL;
 
@@ -110,10 +117,40 @@ LRESULT CALLBACK WebViewHost::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
         return 0;
 
     case WM_ZLIB_DOWNLOAD_DONE:
-        if (self->m_dlCb) {
+        if (wp == 1 && self->m_dlCb) {
             auto* data = reinterpret_cast<std::pair<std::string, std::string>*>(lp);
             self->m_dlCb(data->first, data->second);
             delete data;
+        }
+        return 0;
+
+    case WM_ZLIB_DOWNLOAD_PROGRESS:
+        if (self->m_dlProgressCb) {
+            auto* data = reinterpret_cast<DLProgressData*>(lp);
+            self->m_dlProgressCb(data->fileName, data->received, data->total);
+            delete data;
+        }
+        return 0;
+
+    case WM_ZLIB_DO_IMPORT:
+        if (self->m_importCb) {
+            auto* data = reinterpret_cast<std::pair<std::string, std::string>*>(lp);
+            self->m_importCb(data->first, data->second);
+            delete data;
+        }
+        return 0;
+
+    case WM_ZLIB_DOWNLOAD_FAILED:
+        if (self->m_dlFailCb) {
+            auto* data = reinterpret_cast<DLFailData*>(lp);
+            self->m_dlFailCb(data->fileName, data->reason);
+            delete data;
+        }
+        return 0;
+
+    case WM_ZLIB_REFRESH_LIBRARY:
+        if (self->m_webview) {
+            self->m_webview->ExecuteScript(L"if(window.__refreshLibrary)window.__refreshLibrary();", nullptr);
         }
         return 0;
 

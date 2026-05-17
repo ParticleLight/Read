@@ -34,6 +34,15 @@ public:
     using DownloadCallback = std::function<void(const std::string& path, const std::string& fileName)>;
     void SetDownloadCallback(DownloadCallback cb) { m_dlCb = std::move(cb); }
 
+    using DownloadProgressCb = std::function<void(const std::string& fileName, int64_t received, int64_t total)>;
+    void SetDownloadProgressCallback(DownloadProgressCb cb) { m_dlProgressCb = std::move(cb); }
+
+    using ImportCallback = std::function<void(const std::string& path, const std::string& fileName)>;
+    void SetImportCallback(ImportCallback cb) { m_importCb = std::move(cb); }
+
+    using DownloadFailCb = std::function<void(const std::string& fileName, const std::string& reason)>;
+    void SetDownloadFailCallback(DownloadFailCb cb) { m_dlFailCb = std::move(cb); }
+
     using MessageHandler = std::function<void(const std::string&)>;
     void SetMessageHandler(MessageHandler handler) { m_msgHandler = std::move(handler); }
 
@@ -53,5 +62,8 @@ private:
     MessageHandler m_msgHandler;
     MoveCallback m_moveCb;
     DownloadCallback m_dlCb;
+    DownloadProgressCb m_dlProgressCb;
+    ImportCallback m_importCb;
+    DownloadFailCb m_dlFailCb;
     std::vector<std::string> m_pendingScripts;
 };

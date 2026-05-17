@@ -33,7 +33,9 @@ add_executable(ParticleBook WIN32
 )
 
 # Enable /EHa so catch(...) can handle SEH exceptions (access violations etc.)
-target_compile_options(ParticleBook PRIVATE /EHa)
+# /utf-8: tell MSVC source files are UTF-8 (otherwise it interprets them as GBK on Chinese systems,
+# corrupting Chinese string literals that get embedded in injected JS)
+target_compile_options(ParticleBook PRIVATE /EHa /utf-8)
 
 target_include_directories(ParticleBook PRIVATE
     src/
