@@ -33,6 +33,23 @@ export default function App() {
 
   useEffect(() => { loadBooks() }, [loadBooks])
 
+  // Auto check for updates on startup
+  useEffect(() => {
+    let cancelled = false
+    const check = async () => {
+      try {
+        const info = await window.electronAPI.checkUpdate()
+        if (!cancelled && info?.version) {
+          // Dispatch synthetic event for UpdateBanner
+          window.dispatchEvent(new CustomEvent('pb:updateAvailable', { detail: info }))
+        }
+      } catch {}
+    }
+    // Delay a bit so the UI is ready
+    const t = setTimeout(check, 2000)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [])
+
   useEffect(() => {
     const root = document.documentElement
     root.classList.remove('dark', 'light', 'sepia')

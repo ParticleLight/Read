@@ -10,13 +10,22 @@ export function UpdateBanner() {
   const dismissedVersion = useRef<string | null>(null)
 
   useEffect(() => {
+    const onUpdate = (info: UpdateInfo) => {
+      if (dismissedVersion.current !== info.version) setUpdateInfo(info)
+    }
+    // Listen for startup auto-check result via custom event
+    const onCustom = (e: Event) => onUpdate((e as CustomEvent).detail)
+    window.addEventListener('pb:updateAvailable', onCustom)
+
     const unsubs = [
-      window.electronAPI.onUpdateAvailable((info) => { if (dismissedVersion.current !== info.version) setUpdateInfo(info) }),
+      window.electronAPI.onUpdateAvailable(onUpdate),
       window.electronAPI.onUpdateDownloadProgress((p) => { setDownloading(true); setPercent(p.percent) }),
       window.electronAPI.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true) }),
-      window.electronAPI.onUpdateNotAvailable(() => {}),
     ]
-    return () => unsubs.forEach((u) => u())
+    return () => {
+      unsubs.forEach((u) => u())
+      window.removeEventListener('pb:updateAvailable', onCustom)
+    }
   }, [])
 
   const handleDismiss = () => { if (updateInfo) dismissedVersion.current = updateInfo.version; setUpdateInfo(null); setDownloaded(false); setDownloading(false); setPercent(0) }
