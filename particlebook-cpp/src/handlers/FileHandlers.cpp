@@ -615,7 +615,10 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
         if (downloadUrl.empty()) return json(nullptr);
 
         // Use URLDownloadToFileW (handles redirects automatically)
-        std::wstring wUrl(downloadUrl.begin(), downloadUrl.end());
+        int wlen = MultiByteToWideChar(CP_UTF8, 0, downloadUrl.c_str(), -1, nullptr, 0);
+	    std::wstring wUrl(wlen, L'\0');
+	    MultiByteToWideChar(CP_UTF8, 0, downloadUrl.c_str(), -1, &wUrl[0], wlen);
+	    while (!wUrl.empty() && wUrl.back() == L'\0') wUrl.pop_back();
 
         wchar_t tmpPath[MAX_PATH];
         GetTempPathW(MAX_PATH, tmpPath);
