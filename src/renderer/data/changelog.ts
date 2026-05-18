@@ -14,7 +14,7 @@ export const changelog: ChangelogEntry[] = [
     changes: [
       { type: 'feature', text: '架构重写：从 Electron + Node.js 移植为 C++ Win32 原生应用 + WebView2 前端' },
       { type: 'feature', text: 'C++ 原生窗口替代 Electron BrowserWindow，启动速度提升 3x+，内存占用减少 60%+' },
-      { type: 'feature', text: 'WebView2 渲染引擎替代 Electron Chromium，安装包从 ~150MB 降至 ~5MB' },
+      { type: 'feature', text: 'WebView2 渲染引擎替代 Electron Chromium，安装包从 ~150MB 降至 ~25MB' },
       { type: 'feature', text: '全新 C++ ↔ JavaScript 桥接通信层（BridgeServer），替代 Electron IPC' },
       { type: 'feature', text: 'MuPDF (mutool.exe) 原生引擎替代 pdf.js：PDF 页面渲染、MOBI 文本转换、PDF 文本提取' },
       { type: 'feature', text: '虚拟主机映射（particlebook.app → renderer/）：前端资源 + 大文件零 IPC 直接加载' },
