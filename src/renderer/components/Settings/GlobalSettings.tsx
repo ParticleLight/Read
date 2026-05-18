@@ -79,10 +79,23 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
     }
   }, [])
 
-  const handleCheckUpdate = () => {
+  const handleCheckUpdate = async () => {
     setUpdateStatus('checking')
     setErrorMessage('')
-    window.electronAPI.checkUpdate()
+    try {
+      const info = await window.electronAPI.checkUpdate()
+      if (info?.version) {
+        setUpdateInfo(info)
+        setUpdateStatus('available')
+      } else {
+        setUpdateStatus('not-available')
+        if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+        idleTimerRef.current = setTimeout(() => { idleTimerRef.current = null; setUpdateStatus('idle') }, 3000)
+      }
+    } catch {
+      setErrorMessage('检查更新失败，请检查网络连接')
+      setUpdateStatus('error')
+    }
   }
 
   const handleDownloadUpdate = () => {
