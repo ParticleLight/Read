@@ -153,8 +153,24 @@ json ZLibraryService::Show() {
                       nullptr, nullptr, SW_SHOWNORMAL);
         return json(nullptr);
     }
-    wv->ExecuteScript(L"(function(){var c=document.getElementById('_pb_cover');if(!c){c=document.createElement('div');c.id='_pb_cover';c.style.cssText='position:fixed;inset:0;z-index:2147483647;background:#0f0f12';document.body.appendChild(c);}})()", nullptr);
-    wv->Navigate(ToWide(m_mirrors[m_currentMirror]).c_str());
+
+    std::wstring url = ToWide(m_mirrors[m_currentMirror]);
+    std::string urlNarrow = m_mirrors[m_currentMirror];
+
+    wchar_t exePath[MAX_PATH];
+    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+    auto logPath = std::filesystem::path(exePath).parent_path() / "debug.log";
+    FILE* lf = _wfopen(logPath.c_str(), L"a");
+    if (lf) {
+        time_t now = time(nullptr);
+        char timeBuf[32];
+        strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+        fprintf(lf, "[%s] ZLibraryService::Show() navigating to: %s (mirror %d/%d)\n",
+                timeBuf, urlNarrow.c_str(), m_currentMirror, (int)m_mirrors.size());
+        fclose(lf);
+    }
+
+    wv->Navigate(url.c_str());
     m_bridge->EmitEvent("zlib:mirrorChanged", GetMirrorInfo());
     return json(nullptr);
 }
@@ -332,6 +348,21 @@ void ZLibraryService::SetupDownloadHandler()
                     if (FAILED(args->get_Uri(&uriRaw)) || !uriRaw) return S_OK;
                     std::string uri = ToNarrow(uriRaw);
                     CoTaskMemFree(uriRaw);
+
+                    // Debug log
+                    wchar_t exePath[MAX_PATH];
+                    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
+                    auto logPath = std::filesystem::path(exePath).parent_path() / "debug.log";
+                    FILE* lf = _wfopen(logPath.c_str(), L"a");
+                    if (lf) {
+                        time_t now = time(nullptr);
+                        char timeBuf[32];
+                        strftime(timeBuf, sizeof(timeBuf), "%H:%M:%S", localtime(&now));
+                        fprintf(lf, "[%s] NavigationStarting: %s\n", timeBuf, uri.c_str());
+                        fclose(lf);
+                    }
+
+                    // Also allow URLs that match known mirror domains from FetchMirrors
                     bool isZlib = uri.find("z-lib") != std::string::npos
                                || uri.find("zlib") != std::string::npos
                                || uri.find("1lib") != std::string::npos
@@ -339,13 +370,64 @@ void ZLibraryService::SetupDownloadHandler()
                                || uri.find("singlelogin") != std::string::npos
                                || uri.find("fbiwarning") != std::string::npos
                                || uri.find("bookfi") != std::string::npos;
+                    // Also check against our mirror list
+                    for (auto& m : m_mirrors) {
+                        if (uri.find(m.substr(0, m.size() - 1)) != std::string::npos) { isZlib = true; break; }
+                    }
                     if (!isZlib) {
                         args->put_Cancel(TRUE);
-                        if (!m_mirrors.empty())
-                            m_host->GetWebView()->Navigate(ToWide(m_mirrors[m_currentMirror]).c_str());
                     }
                     return S_OK;
                 }).Get(), &m_navToken);
+    }
+
+    // ── NavigationCompleted — reinject toolbar if missing (error pages) ──
+    {
+        ComPtr<ICoreWebView2_2> wv2comp;
+        if (SUCCEEDED(wv->QueryInterface(IID_PPV_ARGS(&wv2comp)))) {
+            wv2comp->add_NavigationCompleted(
+                Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                    [this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+                        if (!m_zlibActive) return S_OK;
+                        BOOL success = TRUE;
+                        args->get_IsSuccess(&success);
+                        COREWEBVIEW2_WEB_ERROR_STATUS err;
+                        args->get_WebErrorStatus(&err);
+
+                        // Auto-retry next mirror on failure (max one full cycle)
+                        if (!success && err != COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN) {
+                            if (m_navRetryCount < (int)m_mirrors.size()) {
+                                m_navRetryCount++;
+                                m_currentMirror = (m_currentMirror + 1) % (int)m_mirrors.size();
+                                auto* wvSelf = m_host ? m_host->GetWebView() : nullptr;
+                                if (wvSelf) {
+                                    wvSelf->Navigate(ToWide(m_mirrors[m_currentMirror]).c_str());
+                                    m_bridge->EmitEvent("zlib:mirrorChanged", GetMirrorInfo());
+                                    return S_OK;
+                                }
+                            }
+                        } else {
+                            m_navRetryCount = 0; // reset on success
+                        }
+
+                        // All mirrors failed or page loaded — ensure toolbar is present
+                        auto* wvSelf = m_host ? m_host->GetWebView() : nullptr;
+                        if (wvSelf) {
+                            wvSelf->ExecuteScript(
+                                L"setTimeout(function(){"
+                                L"if(document.getElementById('zlib-bar')&&document.getElementById('zlib-bar').style.display!=='none')return;"
+                                L"var b=document.getElementById('zlib-bar');"
+                                L"if(!b){b=document.createElement('div');b.id='zlib-bar';b.style.cssText='display:flex;position:fixed;bottom:16px;right:16px;z-index:2147483647;align-items:center;gap:2px;background:rgba(30,30,30,0.9);backdrop-filter:blur(20px);border-radius:24px;padding:6px 10px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 24px rgba(0,0,0,0.5)';"
+                                L"b.innerHTML='<button id=zb-mirror-fb style=\"font-size:11px;padding:4px 8px;border-radius:6px;width:auto;height:28px;background:transparent;border:none;color:#fff;cursor:pointer\">"
+                                L"线路</button>';"
+                                L"document.documentElement.appendChild(b);"
+                                L"document.getElementById('zb-mirror-fb').onclick=function(){window.chrome.webview.postMessage(JSON.stringify({type:'zlibShowMirror'}));};"
+                                L"}}"
+                                L"},300)", nullptr);
+                        }
+                        return S_OK;
+                    }).Get(), nullptr);
+        }
     }
 
     // ── DownloadStarting — intercept download, use WinHTTP ──

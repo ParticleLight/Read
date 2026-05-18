@@ -55,6 +55,7 @@ private:
     bool m_zlibDlInProgress = false;
     bool m_zlibDlNavigating = false;
     std::string m_zlibUrlBefore;
+    int m_navRetryCount = 0;
     EventRegistrationToken m_downloadToken = {};
     EventRegistrationToken m_navToken = {};
 };

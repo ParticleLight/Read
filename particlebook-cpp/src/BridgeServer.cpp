@@ -42,6 +42,11 @@ void BridgeServer::HandleMessage(const std::string& rawJson)
             if (it != m_methods.end()) {
                 try { it->second(json::object()); } catch (...) {}
             }
+        } else if (type == "zlibShowMirror") {
+            auto it = m_methods.find("zlib:showMirrorMenu");
+            if (it != m_methods.end()) {
+                try { it->second(json::object()); } catch (...) {}
+            }
         } else if (type == "zlibSwitchTo") {
             auto it = m_methods.find("zlib:switchMirror");
             if (it != m_methods.end()) {

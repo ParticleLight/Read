@@ -62,7 +62,7 @@ void App::Init(HINSTANCE hInstance)
         "root.appendChild(b);"
         // Event handlers
         "var _fu='';"
-        "function _chk(){b.style.display='flex';if(!_fu)_fu=location.href;var el=document.getElementById('zb-url');if(el)el.textContent=location.href.substring(0,80)}"
+        "function _chk(){var onPB=location.hostname==='particlebook.app';b.style.display=onPB?'none':'flex';if(!onPB&&!_fu)_fu=location.href;var el=document.getElementById('zb-url');if(el&&!onPB)el.textContent=location.href.substring(0,80)}"
         "_chk();setInterval(_chk,500);"
         "document.getElementById('zb-back').onclick=function(){window.chrome.webview.postMessage(JSON.stringify({type:'zlibNavigate',action:'back'}))};"
         "document.getElementById('zb-fwd').onclick=function(){window.chrome.webview.postMessage(JSON.stringify({type:'zlibNavigate',action:'forward'}))};"

@@ -19,12 +19,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName",      "ParticleLight"
             VALUE "FileDescription",  "ParticleBook - Z-Library E-Book Reader"
-            VALUE "FileVersion",      "2.0.1.0"
+            VALUE "FileVersion",      "2.0.2.0"
             VALUE "InternalName",     "ParticleBook"
             VALUE "LegalCopyright",   "Copyright 2026 ParticleLight"
             VALUE "OriginalFilename", "ParticleBook.exe"
             VALUE "ProductName",      "ParticleBook"
-            VALUE "ProductVersion",   "2.0.1"
+            VALUE "ProductVersion",   "2.0.2"
         END
     END
     BLOCK "VarFileInfo"
