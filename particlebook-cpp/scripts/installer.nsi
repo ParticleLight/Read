@@ -1,6 +1,5 @@
-; ParticleBook v2.0.1 NSIS Installer
-; One-click update from old Electron version via electron-updater
-; Supports: normal install (manual) and /S silent install (electron-updater)
+; ParticleBook NSIS Installer
+; First install: choose directory. Update: auto-detect existing path.
 
 Unicode true
 RequestExecutionLevel user
@@ -10,35 +9,48 @@ SetCompressorDictSize 64
 !define PRODUCT_NAME "ParticleBook"
 !define PRODUCT_VERSION "2.0.1"
 !define PRODUCT_PUBLISHER "ParticleLight"
-!define INSTALL_DIR "$LOCALAPPDATA\Programs\ParticleBook"
+!define REG_KEY "Software\ParticleBook"
 
 Name "${PRODUCT_NAME} v${PRODUCT_VERSION}"
 OutFile "..\build2\ParticleBook-Setup-v2.0.1.exe"
 Icon "..\assets\app.ico"
-InstallDir "${INSTALL_DIR}"
+InstallDir "$LOCALAPPDATA\Programs\ParticleBook"
 BrandingText " "
 
-; Modern UI 2
 !include "MUI2.nsh"
 !define MUI_ICON "..\assets\app.ico"
 !define MUI_UNICON "..\assets\app.ico"
 
-; Pages (hidden in silent mode)
+; Pages
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipDirIfInstalled
+!insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
-; Uninstaller pages
 !insertmacro MUI_UNPAGE_CONFIRM
 !insertmacro MUI_UNPAGE_INSTFILES
 
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "English"
 
-; Hide pages in silent mode
+Var AlreadyInstalled
+
 Function .onInit
     IfSilent 0 +2
     SetAutoClose true
+
+    ; Check if already installed
+    ReadRegStr $0 HKCU "${REG_KEY}" "InstallDir"
+    StrCmp $0 "" done
+    StrCpy $INSTDIR $0
+    StrCpy $AlreadyInstalled 1
+done:
+FunctionEnd
+
+Function SkipDirIfInstalled
+    StrCmp $AlreadyInstalled 1 0 +2
+    Abort
 FunctionEnd
 
 Section "Install"
@@ -59,6 +71,9 @@ Section "Install"
     File "..\build2\Release\renderer\assets\*.css"
 
     SetOutPath "$INSTDIR"
+
+    ; Save install path for future updates
+    WriteRegStr HKCU "${REG_KEY}" "InstallDir" "$INSTDIR"
 
     ; Desktop shortcut
     CreateShortCut "$DESKTOP\ParticleBook.lnk" "$INSTDIR\ParticleBook.exe" "" "$INSTDIR\ParticleBook.exe" 0
@@ -93,5 +108,6 @@ Section "Uninstall"
     Delete "$SMPROGRAMS\ParticleBook\ParticleBook.lnk"
     RMDir "$SMPROGRAMS\ParticleBook"
 
+    DeleteRegKey HKCU "${REG_KEY}"
     DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\ParticleBook"
 SectionEnd
