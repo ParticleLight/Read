@@ -1,8 +1,8 @@
-version: 2.0.4
+version: 2.0.5
 files:
-  - url: ParticleBook-Setup-v2.0.4.exe
-    sha512: 64afb28dea5d8450df60a32781f22821298eb00812d6865bde733f4cfbd76dec26fd577300ca8969b1adbf8a50c411c20e94e006f3f52bacb5d7f3a09422f856
-    size: 23694154
-path: ParticleBook-Setup-v2.0.4.exe
-sha512: 64afb28dea5d8450df60a32781f22821298eb00812d6865bde733f4cfbd76dec26fd577300ca8969b1adbf8a50c411c20e94e006f3f52bacb5d7f3a09422f856
-releaseDate: '2026-05-18T14:59:52.404Z'
+  - url: ParticleBook-Setup-v2.0.5.exe
+    sha512: f9eebbced66dda47908e8fb87cbc6d4a5e24cb8d3d6f4adae7d94b88d113d056c2e2e5e3d46f2927595c8118527570c06dee940e4c5568f312675e3a1e8dd446
+    size: 23692780
+path: ParticleBook-Setup-v2.0.5.exe
+sha512: f9eebbced66dda47908e8fb87cbc6d4a5e24cb8d3d6f4adae7d94b88d113d056c2e2e5e3d46f2927595c8118527570c06dee940e4c5568f312675e3a1e8dd446
+releaseDate: '2026-05-18T15:08:28.406Z'

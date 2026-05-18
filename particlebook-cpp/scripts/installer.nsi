@@ -7,12 +7,12 @@ SetCompressor /SOLID lzma
 SetCompressorDictSize 64
 
 !define PRODUCT_NAME "ParticleBook"
-!define PRODUCT_VERSION "2.0.4"
+!define PRODUCT_VERSION "2.0.5"
 !define PRODUCT_PUBLISHER "ParticleLight"
 !define REG_KEY "Software\ParticleBook"
 
 Name "${PRODUCT_NAME} v${PRODUCT_VERSION}"
-OutFile "..\build2\ParticleBook-Setup-v2.0.4.exe"
+OutFile "..\build2\ParticleBook-Setup-v2.0.5.exe"
 Icon "..\assets\app.ico"
 InstallDir "$LOCALAPPDATA\Programs\ParticleBook"
 BrandingText " "
