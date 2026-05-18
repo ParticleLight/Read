@@ -551,7 +551,7 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
     });
 
     // ── Update checker ─────────────────────────────────────────
-    bridge->RegisterMethod("app:getVersion", [](const json&) -> json { return json("2.0.2"); });
+    bridge->RegisterMethod("app:getVersion", [](const json&) -> json { return json("2.0.3"); });
 
     bridge->RegisterMethod("app:checkUpdate", [](const json&) -> json {
         // Fetch latest release info from GitHub API
@@ -587,7 +587,7 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
             std::string latestVer = (tag[0] == 'v') ? tag.substr(1) : tag;
 
             // Compare versions (simple string comparison works for semver)
-            if (latestVer > "2.0.2") {
+            if (latestVer > "2.0.3") {
                 json result;
                 result["version"] = latestVer;
                 result["releaseNotes"] = release.value("body", "");

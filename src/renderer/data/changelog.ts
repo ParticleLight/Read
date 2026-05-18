@@ -51,6 +51,22 @@ export const changelog: ChangelogEntry[] = [
     ],
   },
   {
+    version: '2.0.3',
+    date: '2026-05-19',
+    changes: [
+      { type: 'feature', text: '启动时自动检测更新，发现新版弹出绿色横幅提醒一键升级' },
+      { type: 'feature', text: 'NSIS 安装包：首次可选安装目录，后续更新自动沿用无需重选' },
+      { type: 'feature', text: '书源导入功能（Legado JSON 格式）：原生文件对话框 + 自动解析入库' },
+      { type: 'fix', text: '修复 Z-Library 默认线路不可用时工具栏不显示问题（NavigationCompleted 补注）' },
+      { type: 'fix', text: '修复 Z-Library 线路不可用时自动切换镜像（逐個尝试，最多遍历一圈）' },
+      { type: 'fix', text: '修复 NavigationStarting 死循环（FetchMirrors 拉到的镜像域名不匹配关键词导致无限拦截重定向）' },
+      { type: 'fix', text: '修复 Z-Library 工具栏在非 ZL 页面也显示的问题（particlebook.app 自动隐藏）' },
+      { type: 'fix', text: '修复工具栏初始化改用 documentElement 挂载，错误页也能显示' },
+      { type: 'fix', text: '修复无法更新检测（app:checkUpdate + app:downloadUpdate 从空桩实现为 GitHub API 查询 + URLDownloadToFileW 下载安装）' },
+      { type: 'improve', text: '移除遗留的 _pb_cover 遮罩，Z-Library 加载体验更流畅' },
+    ],
+  },
+  {
     version: '1.8.7',
     date: '2026-05-14',
     changes: [
