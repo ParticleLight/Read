@@ -7,12 +7,12 @@ SetCompressor /SOLID lzma
 SetCompressorDictSize 64
 
 !define PRODUCT_NAME "ParticleBook"
-!define PRODUCT_VERSION "2.0.3"
+!define PRODUCT_VERSION "2.0.4"
 !define PRODUCT_PUBLISHER "ParticleLight"
 !define REG_KEY "Software\ParticleBook"
 
 Name "${PRODUCT_NAME} v${PRODUCT_VERSION}"
-OutFile "..\build2\ParticleBook-Setup-v2.0.3.exe"
+OutFile "..\build2\ParticleBook-Setup-v2.0.4.exe"
 Icon "..\assets\app.ico"
 InstallDir "$LOCALAPPDATA\Programs\ParticleBook"
 BrandingText " "
@@ -54,6 +54,23 @@ Function SkipDirIfInstalled
 FunctionEnd
 
 Section "Install"
+    ; ── Clean up old Electron version ──────────────────────────
+    ; Remove Electron/Chromium files that the C++ version doesn't use
+    ; ParticleBook.exe will be overwritten, but Electron extras remain
+    Delete "$INSTDIR\chrome_100_percent.pak"
+    Delete "$INSTDIR\chrome_200_percent.pak"
+    Delete "$INSTDIR\icudtl.dat"
+    Delete "$INSTDIR\snapshot_blob.bin"
+    Delete "$INSTDIR\v8_context_snapshot.bin"
+    Delete "$INSTDIR\vk_swiftshader_icd.json"
+    Delete "$INSTDIR\resources.pak"
+    Delete "$INSTDIR\LICENSE.electron.txt"
+    Delete "$INSTDIR\LICENSES.chromium.html"
+    Delete "$INSTDIR\*.dll"
+    Delete "$INSTDIR\*.bin"
+    RMDir /r "$INSTDIR\locales"
+    RMDir /r "$INSTDIR\resources"
+
     SetOutPath "$INSTDIR"
 
     ; Core application

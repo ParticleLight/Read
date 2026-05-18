@@ -67,6 +67,15 @@ export const changelog: ChangelogEntry[] = [
     ],
   },
   {
+    version: '2.0.4',
+    date: '2026-05-19',
+    changes: [
+      { type: 'fix', text: '修复手动检查更新时永远转圈不返回结果（handleCheckUpdate 未 await）' },
+      { type: 'feature', text: '从 Electron 旧版更新后自动清理 Electron 残留文件（Chromium DLL / locales / resources）' },
+      { type: 'improve', text: '启动自动检测更新（打开 2 秒后查询 GitHub，有新版弹横幅）' },
+    ],
+  },
+  {
     version: '1.8.7',
     date: '2026-05-14',
     changes: [
