@@ -46,7 +46,7 @@ void App::Init(HINSTANCE hInstance)
     // Z-Library floating toolbar
     m_webview->InjectBridgeScript(
         "(function(){"
-        "var _t=setInterval(function(){if(document.body){clearInterval(_t);"
+        "var _t=setInterval(function(){var root=document.documentElement||document.body;if(root){clearInterval(_t);"
         // CSS
         "var s=document.createElement('style');s.textContent='#zlib-bar{position:fixed;bottom:16px;right:16px;z-index:2147483647;align-items:center;gap:2px;background:rgba(30,30,30,0.9);backdrop-filter:blur(20px);border-radius:24px;padding:6px 10px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 4px 24px rgba(0,0,0,0.5)}#zlib-bar button{background:transparent;border:none;color:rgba(255,255,255,0.7);padding:8px;border-radius:50%;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center}#zlib-bar button:hover{color:#fff;background:rgba(255,255,255,0.1)}#zlib-bar .sep{width:1px;height:20px;background:rgba(255,255,255,0.1);margin:0 4px}#zlib-bar .u{font-size:11px;color:rgba(255,255,255,0.5);margin:0 6px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}';"
         "document.head.appendChild(s);"
@@ -58,12 +58,11 @@ void App::Init(HINSTANCE hInstance)
         "+'<button id=zb-mirror style=font-size:11px;padding:4px 8px;border-radius:6px;width:auto;height:28px>线路</button>'"
         "+'<span class=sep></span><button id=zb-close style=color:rgba(255,100,100,0.8)>'"
         "+'<svg width=16 height=16 viewBox=\"0 0 24 24\" fill=none stroke=currentColor stroke-width=2><path d=\"M6 18L18 6M6 6l12 12\"/></svg></button>'}"
-        "var b=document.createElement('div');b.id='zlib-bar';b.style.display='none';b.innerHTML=_svgs();"
-        "document.body.appendChild(b);"
+        "var b=document.createElement('div');b.id='zlib-bar';b.style.display='flex';b.innerHTML=_svgs();"
+        "root.appendChild(b);"
         // Event handlers
         "var _fu='';"
-        "function _chk(){var h=location.hostname;var a=h.indexOf('z-lib')!==-1||h.indexOf('zlib')!==-1||h.indexOf('1lib')!==-1||h.indexOf('zzz')!==-1||h.indexOf('singlelogin')!==-1||h.indexOf('fbiwarning')!==-1||h.indexOf('zlibrary')!==-1;"
-        "b.style.display=a?'flex':'none';if(a){if(!_fu)_fu=location.href;var el=document.getElementById('zb-url');if(el)el.textContent=location.href.substring(0,80)}}"
+        "function _chk(){b.style.display='flex';if(!_fu)_fu=location.href;var el=document.getElementById('zb-url');if(el)el.textContent=location.href.substring(0,80)}"
         "_chk();setInterval(_chk,500);"
         "document.getElementById('zb-back').onclick=function(){window.chrome.webview.postMessage(JSON.stringify({type:'zlibNavigate',action:'back'}))};"
         "document.getElementById('zb-fwd').onclick=function(){window.chrome.webview.postMessage(JSON.stringify({type:'zlibNavigate',action:'forward'}))};"
@@ -85,7 +84,7 @@ void App::Init(HINSTANCE hInstance)
         "it.onmouseleave=function(){if(idx!==cur)it.style.background='transparent'};"
         "it.onclick=function(){window.chrome.webview.postMessage(JSON.stringify({type:'zlibSwitchTo',index:idx}));p.remove();_mp=null;};"
         "p.appendChild(it);})(i,info.index)}"
-        "document.body.appendChild(p);_mp=p;"
+        "root.appendChild(p);_mp=p;"
         "setTimeout(function(){var h=function(e){if(_mp&&!_mp.contains(e.target)){_mp.remove();_mp=null;document.removeEventListener('click',h)}};document.addEventListener('click',h)},100);"
         "}).catch(function(){});};"
         "}},100)}"

@@ -546,7 +546,7 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
 
     // ── Stubs for not-yet-implemented ──────────────────────────
     bridge->RegisterMethod("app:checkUpdate",    [](const json&) -> json { return json(nullptr); });
-    bridge->RegisterMethod("app:getVersion",     [](const json&) -> json { return json("2.0.0"); });
+    bridge->RegisterMethod("app:getVersion",     [](const json&) -> json { return json("2.0.1"); });
     bridge->RegisterMethod("app:downloadUpdate", [](const json&) -> json { return json(nullptr); });
     bridge->RegisterMethod("app:quitAndInstall", [](const json&) -> json {
         PostQuitMessage(0); return json(nullptr);

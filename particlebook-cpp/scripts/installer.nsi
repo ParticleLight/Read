@@ -1,4 +1,4 @@
-; ParticleBook v2.0.0 NSIS Installer
+; ParticleBook v2.0.1 NSIS Installer
 ; One-click update from old Electron version via electron-updater
 ; Supports: normal install (manual) and /S silent install (electron-updater)
 
@@ -8,12 +8,12 @@ SetCompressor /SOLID lzma
 SetCompressorDictSize 64
 
 !define PRODUCT_NAME "ParticleBook"
-!define PRODUCT_VERSION "2.0.0"
+!define PRODUCT_VERSION "2.0.1"
 !define PRODUCT_PUBLISHER "ParticleLight"
 !define INSTALL_DIR "$LOCALAPPDATA\Programs\ParticleBook"
 
 Name "${PRODUCT_NAME} v${PRODUCT_VERSION}"
-OutFile "..\build2\ParticleBook-Setup-v2.0.0.exe"
+OutFile "..\build2\ParticleBook-Setup-v2.0.1.exe"
 Icon "..\assets\app.ico"
 InstallDir "${INSTALL_DIR}"
 BrandingText " "
