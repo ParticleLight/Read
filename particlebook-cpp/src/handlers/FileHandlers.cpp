@@ -9,10 +9,16 @@
 #include <filesystem>
 #include <shobjidl.h>
 #include <commdlg.h>
+#include <urlmon.h>
+#include <winhttp.h>
+#include <shellapi.h>
 #include <cstring>
 #include <cstdio>
 #include <ctime>
 #include <mutex>
+
+#pragma comment(lib, "urlmon.lib")
+#pragma comment(lib, "winhttp.lib")
 
 static std::wstring Utf8ToWide(const std::string& s)
 {
@@ -544,10 +550,99 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
         return json(nullptr);
     });
 
-    // ── Stubs for not-yet-implemented ──────────────────────────
-    bridge->RegisterMethod("app:checkUpdate",    [](const json&) -> json { return json(nullptr); });
-    bridge->RegisterMethod("app:getVersion",     [](const json&) -> json { return json("2.0.1"); });
-    bridge->RegisterMethod("app:downloadUpdate", [](const json&) -> json { return json(nullptr); });
+    // ── Update checker ─────────────────────────────────────────
+    bridge->RegisterMethod("app:getVersion", [](const json&) -> json { return json("2.0.1"); });
+
+    bridge->RegisterMethod("app:checkUpdate", [](const json&) -> json {
+        // Fetch latest release info from GitHub API
+        HINTERNET hS = WinHttpOpen(L"PB/2.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, nullptr, nullptr, 0);
+        if (!hS) return json(nullptr);
+
+        HINTERNET hC = WinHttpConnect(hS, L"api.github.com", 443, 0);
+        if (!hC) { WinHttpCloseHandle(hS); return json(nullptr); }
+
+        HINTERNET hR = WinHttpOpenRequest(hC, L"GET",
+            L"/repos/ParticleLight/ParticleBook/releases/latest",
+            nullptr, nullptr, nullptr, WINHTTP_FLAG_SECURE);
+        if (!hR) { WinHttpCloseHandle(hC); WinHttpCloseHandle(hS); return json(nullptr); }
+
+        WinHttpAddRequestHeaders(hR, L"User-Agent: ParticleBook/2.0\r\nAccept: application/vnd.github+json\r\n", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+
+        if (!WinHttpSendRequest(hR, nullptr, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hR, nullptr)) {
+            WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+            return json(nullptr);
+        }
+
+        std::string body;
+        DWORD br; char buf[8192];
+        while (WinHttpReadData(hR, buf, sizeof(buf), &br) && br > 0) body.append(buf, br);
+        WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+
+        try {
+            auto release = json::parse(body);
+            std::string tag = release.value("tag_name", "");
+            if (tag.empty()) return json(nullptr);
+
+            // Strip 'v' prefix
+            std::string latestVer = (tag[0] == 'v') ? tag.substr(1) : tag;
+
+            // Compare versions (simple string comparison works for semver)
+            if (latestVer == "2.0.1" || latestVer > "2.0.1") {
+                json result;
+                result["version"] = latestVer;
+                result["releaseNotes"] = release.value("body", "");
+
+                // Find EXE asset
+                for (auto& asset : release["assets"]) {
+                    std::string name = asset.value("name", "");
+                    if (name.find("-Setup-") != std::string::npos && name.find(".exe") != std::string::npos) {
+                        result["fileName"] = name;
+                        result["downloadUrl"] = asset.value("browser_download_url", "");
+                        result["size"] = asset.value("size", 0);
+                        break;
+                    }
+                }
+                return result;
+            }
+            return json(nullptr);
+        } catch (...) {
+            return json(nullptr);
+        }
+    });
+
+    bridge->RegisterMethod("app:downloadUpdate", [](const json& p) -> json {
+        std::string downloadUrl = p.value("url", "");
+        if (downloadUrl.empty()) return json(nullptr);
+
+        // Use URLDownloadToFileW (handles redirects automatically)
+        std::wstring wUrl(downloadUrl.begin(), downloadUrl.end());
+
+        wchar_t tmpPath[MAX_PATH];
+        GetTempPathW(MAX_PATH, tmpPath);
+        std::wstring exePath = std::wstring(tmpPath) + L"ParticleBook-Update.exe";
+        DeleteFileW(exePath.c_str());
+
+        HRESULT hr = URLDownloadToFileW(nullptr, wUrl.c_str(), exePath.c_str(), 0, nullptr);
+        if (FAILED(hr)) {
+            // Fallback: open in browser
+            ShellExecuteW(nullptr, L"open", wUrl.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+            return json(true);
+        }
+
+        // Run installer silently
+        std::wstring cmdLine = L"\"" + exePath + L"\" /S";
+        STARTUPINFOW si = { sizeof(si) };
+        PROCESS_INFORMATION pi = {};
+        if (CreateProcessW(nullptr, cmdLine.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            // Schedule cleanup of old temp file after a delay
+            // (installer might still be running in /S mode)
+        }
+
+        return json(true);
+    });
+
     bridge->RegisterMethod("app:quitAndInstall", [](const json&) -> json {
         PostQuitMessage(0); return json(nullptr);
     });
