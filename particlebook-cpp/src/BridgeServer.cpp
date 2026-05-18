@@ -281,7 +281,7 @@ std::string BridgeServer::GenerateBridgeScript()
 
     checkUpdate: function()    { return invoke('app:checkUpdate'); },
     getAppVersion: function()  { return invoke('app:getVersion'); },
-    downloadUpdate: function() { return invoke('app:downloadUpdate'); },
+    downloadUpdate: function(url) { return invoke('app:downloadUpdate', {url:url||''}); },
     quitAndInstall: function() { return invoke('app:quitAndInstall'); },
     onUpdateAvailable: function(cb)        { return onEvent('app:updateAvailable', cb); },
     onUpdateNotAvailable: function(cb)     { return onEvent('app:updateNotAvailable', cb); },

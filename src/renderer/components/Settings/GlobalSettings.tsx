@@ -9,6 +9,8 @@ interface UpdateInfo {
   version: string
   releaseDate?: string
   releaseNotes?: string
+  downloadUrl?: string
+  fileName?: string
 }
 
 export function GlobalSettings({ onBack }: GlobalSettingsProps) {
@@ -100,7 +102,7 @@ export function GlobalSettings({ onBack }: GlobalSettingsProps) {
 
   const handleDownloadUpdate = () => {
     setUpdateStatus('downloading')
-    window.electronAPI.downloadUpdate()
+    window.electronAPI.downloadUpdate(updateInfo?.downloadUrl || '')
   }
 
   const handleQuitAndInstall = () => {

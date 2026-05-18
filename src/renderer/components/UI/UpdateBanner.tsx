@@ -1,26 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 
-interface UpdateInfo { version: string; releaseDate?: string; releaseNotes?: string }
+interface UpdateInfo { version: string; releaseDate?: string; releaseNotes?: string; downloadUrl?: string; fileName?: string }
 
 export function UpdateBanner() {
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [downloading, setDownloading] = useState(false)
-  const [percent, setPercent] = useState(0)
-  const [downloaded, setDownloaded] = useState(false)
   const dismissedVersion = useRef<string | null>(null)
 
   useEffect(() => {
     const onUpdate = (info: UpdateInfo) => {
       if (dismissedVersion.current !== info.version) setUpdateInfo(info)
     }
-    // Listen for startup auto-check result via custom event
     const onCustom = (e: Event) => onUpdate((e as CustomEvent).detail)
     window.addEventListener('pb:updateAvailable', onCustom)
 
     const unsubs = [
       window.electronAPI.onUpdateAvailable(onUpdate),
-      window.electronAPI.onUpdateDownloadProgress((p) => { setDownloading(true); setPercent(p.percent) }),
-      window.electronAPI.onUpdateDownloaded(() => { setDownloading(false); setDownloaded(true) }),
     ]
     return () => {
       unsubs.forEach((u) => u())
@@ -28,7 +23,15 @@ export function UpdateBanner() {
     }
   }, [])
 
-  const handleDismiss = () => { if (updateInfo) dismissedVersion.current = updateInfo.version; setUpdateInfo(null); setDownloaded(false); setDownloading(false); setPercent(0) }
+  const handleDismiss = () => {
+    if (updateInfo) dismissedVersion.current = updateInfo.version
+    setUpdateInfo(null); setDownloading(false)
+  }
+
+  const handleDownload = () => {
+    setDownloading(true)
+    window.electronAPI.downloadUpdate(updateInfo?.downloadUrl || '')
+  }
 
   if (!updateInfo) return null
 
@@ -38,13 +41,11 @@ export function UpdateBanner() {
       <div className="flex items-center gap-3">
         <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17l9.2-9.2M17 17V7H7M7 7h5m5 10v-5" /></svg>
         <span className="text-sm font-medium">发现新版本 v{updateInfo.version}</span>
-        {downloading && <span className="text-xs opacity-70">下载中 {Math.round(percent)}%</span>}
+        {downloading && <span className="text-xs opacity-70">下载中...</span>}
       </div>
       <div className="flex items-center gap-2">
-        {downloaded ? (
-          <button onClick={() => window.electronAPI.quitAndInstall()} className="px-3 py-1.5 text-xs rounded-md font-medium" style={{ background: 'var(--color-green)', color: '#fff' }}>立即重启安装</button>
-        ) : downloading ? null : (
-          <button onClick={() => { setDownloading(true); window.electronAPI.downloadUpdate() }} className="px-3 py-1.5 text-xs rounded-md font-medium" style={{ background: 'var(--color-green)', color: '#fff' }}>下载更新</button>
+        {downloading ? null : (
+          <button onClick={handleDownload} className="px-3 py-1.5 text-xs rounded-md font-medium" style={{ background: 'var(--color-green)', color: '#fff' }}>下载更新</button>
         )}
         <button onClick={handleDismiss} className="p-1 rounded-md opacity-60 hover:opacity-100 transition-opacity"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
       </div>
