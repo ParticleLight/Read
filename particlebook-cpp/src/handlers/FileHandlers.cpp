@@ -552,5 +552,83 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
         PostQuitMessage(0); return json(nullptr);
     });
 
-    bridge->RegisterMethod("bookSource:importFile",     [](const json&) -> json { return json(nullptr); });
+    bridge->RegisterMethod("bookSource:importFile", [db](const json&) -> json {
+        // Open file dialog for JSON book source files
+        IFileOpenDialog* pDialog = nullptr;
+        HRESULT hr = CoCreateInstance(CLSID_FileOpenDialog, nullptr, CLSCTX_ALL,
+                                      IID_PPV_ARGS(&pDialog));
+        if (FAILED(hr) || !pDialog) return json(nullptr);
+
+        COMDLG_FILTERSPEC filters[] = {
+            { L"Legado 书源文件 (*.json)", L"*.json" },
+            { L"所有文件 (*.*)", L"*.*" }
+        };
+        pDialog->SetFileTypes(2, filters);
+        pDialog->SetTitle(L"导入 Legado 书源文件");
+
+        hr = pDialog->Show(nullptr);
+        if (FAILED(hr)) { pDialog->Release(); return json(nullptr); }
+
+        IShellItem* pItem = nullptr;
+        hr = pDialog->GetResult(&pItem);
+        pDialog->Release();
+        if (FAILED(hr) || !pItem) return json(nullptr);
+
+        LPWSTR pwPath = nullptr;
+        pItem->GetDisplayName(SIGDN_FILESYSPATH, &pwPath);
+        pItem->Release();
+        if (!pwPath) return json(nullptr);
+
+        int len = WideCharToMultiByte(CP_UTF8, 0, pwPath, -1, nullptr, 0, nullptr, nullptr);
+        std::string filePath(len, '\0');
+        WideCharToMultiByte(CP_UTF8, 0, pwPath, -1, &filePath[0], len, nullptr, nullptr);
+        while (!filePath.empty() && filePath.back() == '\0') filePath.pop_back();
+        CoTaskMemFree(pwPath);
+
+        // Read and parse JSON
+        std::ifstream f(filePath, std::ios::binary);
+        if (!f.is_open()) return json(nullptr);
+
+        std::string content((std::istreambuf_iterator<char>(f)),
+                            std::istreambuf_iterator<char>());
+        f.close();
+
+        try {
+            auto j = json::parse(content);
+            int imported = 0;
+
+            // Legado format: array of source objects
+            if (j.is_array()) {
+                for (auto& src : j) {
+                    json entry;
+                    std::string name = src.value("bookSourceName", "");
+                    std::string url = src.value("bookSourceUrl", "");
+                    if (name.empty() && url.empty()) continue;
+
+                    entry["bookSourceName"] = name;
+                    entry["bookSourceUrl"] = url;
+                    entry["enabled"] = true;
+
+                    // Copy relevant fields
+                    if (src.contains("bookSourceGroup")) entry["bookSourceGroup"] = src["bookSourceGroup"];
+                    if (src.contains("bookSourceType")) entry["bookSourceType"] = src["bookSourceType"];
+                    if (src.contains("searchUrl")) entry["searchUrl"] = src["searchUrl"];
+                    if (src.contains("ruleSearch")) entry["ruleSearch"] = src["ruleSearch"];
+                    if (src.contains("ruleBookInfo")) entry["ruleBookInfo"] = src["ruleBookInfo"];
+                    if (src.contains("ruleToc")) entry["ruleToc"] = src["ruleToc"];
+                    if (src.contains("ruleContent")) entry["ruleContent"] = src["ruleContent"];
+                    if (src.contains("httpUserAgent")) entry["httpUserAgent"] = src["httpUserAgent"];
+
+                    db->InsertBookSource(entry);
+                    imported++;
+                }
+            }
+
+            json result;
+            result["imported"] = imported;
+            return result;
+        } catch (...) {
+            return json(nullptr);
+        }
+    });
 }
