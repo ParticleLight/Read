@@ -554,23 +554,37 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
     bridge->RegisterMethod("app:getVersion", [](const json&) -> json { return json("2.0.5"); });
 
     bridge->RegisterMethod("app:checkUpdate", [](const json&) -> json {
-        // Fetch latest release info from GitHub API
+        // Fetch latest.yml from GitHub Releases (no API rate limit)
         HINTERNET hS = WinHttpOpen(L"PB/2.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, nullptr, nullptr, 0);
         if (!hS) return json(nullptr);
 
-        HINTERNET hC = WinHttpConnect(hS, L"api.github.com", 443, 0);
+        HINTERNET hC = WinHttpConnect(hS, L"github.com", 443, 0);
         if (!hC) { WinHttpCloseHandle(hS); return json(nullptr); }
 
+        // Try latest.yml from releases/latest/download/ (redirects handled by WinHTTP)
         HINTERNET hR = WinHttpOpenRequest(hC, L"GET",
-            L"/repos/ParticleLight/ParticleBook/releases/latest",
+            L"/ParticleLight/ParticleBook/releases/latest/download/latest.yml",
             nullptr, nullptr, nullptr, WINHTTP_FLAG_SECURE);
         if (!hR) { WinHttpCloseHandle(hC); WinHttpCloseHandle(hS); return json(nullptr); }
 
-        WinHttpAddRequestHeaders(hR, L"User-Agent: ParticleBook/2.0\r\nAccept: application/vnd.github+json\r\n", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+        WinHttpAddRequestHeaders(hR, L"User-Agent: ParticleBook/2.0\r\n", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
 
         if (!WinHttpSendRequest(hR, nullptr, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hR, nullptr)) {
+            // Fallback to API
             WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
-            return json(nullptr);
+
+            hS = WinHttpOpen(L"PB/2.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, nullptr, nullptr, 0);
+            if (!hS) return json(nullptr);
+            hC = WinHttpConnect(hS, L"api.github.com", 443, 0);
+            if (!hC) { WinHttpCloseHandle(hS); return json(nullptr); }
+            hR = WinHttpOpenRequest(hC, L"GET", L"/repos/ParticleLight/ParticleBook/releases/latest",
+                nullptr, nullptr, nullptr, WINHTTP_FLAG_SECURE);
+            if (!hR) { WinHttpCloseHandle(hC); WinHttpCloseHandle(hS); return json(nullptr); }
+            WinHttpAddRequestHeaders(hR, L"User-Agent: ParticleBook/2.0\r\nAccept: application/vnd.github+json\r\n", (DWORD)-1, WINHTTP_ADDREQ_FLAG_ADD);
+            if (!WinHttpSendRequest(hR, nullptr, 0, nullptr, 0, 0, 0) || !WinHttpReceiveResponse(hR, nullptr)) {
+                WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
+                return json(nullptr);
+            }
         }
 
         std::string body;
@@ -578,36 +592,78 @@ void RegisterFileHandlers(BridgeServer* bridge, DatabaseService* db, ContentCach
         while (WinHttpReadData(hR, buf, sizeof(buf), &br) && br > 0) body.append(buf, br);
         WinHttpCloseHandle(hR); WinHttpCloseHandle(hC); WinHttpCloseHandle(hS);
 
-        try {
-            auto release = json::parse(body);
-            std::string tag = release.value("tag_name", "");
-            if (tag.empty()) return json(nullptr);
+        // Try YAML format first (latest.yml)
+        std::string latestVer;
+        std::string dlUrl;
+        std::string fileName;
+        size_t size = 0;
 
-            // Strip 'v' prefix
-            std::string latestVer = (tag[0] == 'v') ? tag.substr(1) : tag;
+        // Parse latest.yml: "version: X.Y.Z\nfiles:\n  - url: ...\n    sha512: ...\n    size: N"
+        size_t vp = body.find("version:");
+        if (vp != std::string::npos) {
+            vp += 8;
+            while (vp < body.size() && body[vp] == ' ') vp++;
+            size_t ve = body.find('\n', vp);
+            if (ve != std::string::npos) latestVer = body.substr(vp, ve - vp);
+            while (!latestVer.empty() && (latestVer.back() == '\r' || latestVer.back() == ' ')) latestVer.pop_back();
 
-            // Compare versions (simple string comparison works for semver)
-            if (latestVer > "2.0.5") {
-                json result;
-                result["version"] = latestVer;
-                result["releaseNotes"] = release.value("body", "");
+            // Find url
+            size_t up = body.find("url:");
+            if (up != std::string::npos) {
+                up += 4;
+                while (up < body.size() && body[up] == ' ') up++;
+                size_t ue = body.find('\n', up);
+                if (ue != std::string::npos) fileName = body.substr(up, ue - up);
+                while (!fileName.empty() && (fileName.back() == '\r' || fileName.back() == ' ')) fileName.pop_back();
+            }
 
-                // Find EXE asset
-                for (auto& asset : release["assets"]) {
-                    std::string name = asset.value("name", "");
-                    if (name.find("-Setup-") != std::string::npos && name.find(".exe") != std::string::npos) {
-                        result["fileName"] = name;
-                        result["downloadUrl"] = asset.value("browser_download_url", "");
-                        result["size"] = asset.value("size", 0);
-                        break;
+            // Find size
+            size_t sp = body.find("size:");
+            if (sp != std::string::npos) {
+                sp += 5;
+                while (sp < body.size() && body[sp] == ' ') sp++;
+                size_t se = body.find('\n', sp);
+                if (se != std::string::npos) {
+                    try { size = std::stoull(body.substr(sp, se - sp)); } catch (...) {}
+                }
+            }
+
+            // Build download URL from file name
+            if (!latestVer.empty() && !fileName.empty()) {
+                dlUrl = "https://github.com/ParticleLight/ParticleBook/releases/download/v"
+                      + latestVer + "/" + fileName;
+            }
+        } else {
+            // Try JSON format (GitHub API response)
+            try {
+                auto release = json::parse(body);
+                std::string tag = release.value("tag_name", "");
+                if (!tag.empty()) {
+                    latestVer = (tag[0] == 'v') ? tag.substr(1) : tag;
+                    for (auto& asset : release["assets"]) {
+                        std::string name = asset.value("name", "");
+                        if (name.find("-Setup-") != std::string::npos && name.find(".exe") != std::string::npos) {
+                            fileName = name;
+                            dlUrl = asset.value("browser_download_url", "");
+                            size = asset.value("size", 0);
+                            break;
+                        }
                     }
                 }
-                return result;
-            }
-            return json(nullptr);
-        } catch (...) {
-            return json(nullptr);
+            } catch (...) {}
         }
+
+        if (latestVer.empty() || dlUrl.empty()) return json(nullptr);
+
+        if (latestVer > "2.0.5") {
+            json result;
+            result["version"] = latestVer;
+            result["fileName"] = fileName;
+            result["downloadUrl"] = dlUrl;
+            result["size"] = size;
+            return result;
+        }
+        return json(nullptr);
     });
 
     bridge->RegisterMethod("app:downloadUpdate", [](const json& p) -> json {
